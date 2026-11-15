@@ -130,6 +130,35 @@ Cells show runs passed and mean cost per run.
 - **Overhead when there's nothing to coordinate:** +$0.002 and about +4–5 s per run on Haiku (+11–18%, in both codebases), and +$0.026 (+7%) and +6 s on Opus in the demo repo. In the monorepo, Opus showed no measurable overhead ($0.55 vs $0.55, 22 s vs 22 s). Almost all of the overhead is bookkeeping calls (see below).
 - **It found a lucid bug.** The first memory run failed 1 of 4 because a finished session's file claim blocked the next session. Claims now release on `SessionEnd`, and the scenario was rerun.
 
+### Why runs without lucid fail
+
+All 42 failed runs were without lucid, and in every one the original tasks were done correctly. The only thing missing was the mid-task change: nothing told a running worker that the plan had changed.
+
+| | Who | What happens without lucid |
+|---|---|---|
+| 1 | Lead | Reads `PLAN.md`, writes briefs, spawns workers A and B. |
+| 2 | Workers | Read their brief (a snapshot) and work from what's in their context. |
+| 3 | **You** | **Edit `PLAN.md` mid-task. Nothing tells anyone.** |
+| 4 | Workers | Finish the *original* task and report "done". |
+| 5 | Lead | Sees "done" from both and reports success. **✗ The change is missing.** |
+
+1. **Workers work from a snapshot.** The plan reaches each worker in its brief, or in one read of `PLAN.md` at the start. After that the worker works from its context. Agents don't re-open files they've already read unless something gives them a reason, so a changed file on disk goes unseen.
+2. **Nothing signals the change.** Claude Code doesn't watch files for agents, and editing a file doesn't interrupt anyone.
+3. **The lead trusts the reports.** Workers report "done", which is true of the task they were given. The lead has no reason to re-check the plan, so it reports success.
+
+**Why some runs without lucid still passed (12 of 54).** Luck in timing, or extra checking. Early changes were caught more often (5 of 13 on the demo repo, against 2 of 13 for late ones), because a worker that happens to re-open `PLAN.md` mid-task sees the new line. Opus sometimes re-checked the plan at the end and fixed the work itself. That's why those successes cost more and took longer: $1.68 and 115 s, against lucid's $1.58 and 76 s on the same scenario.
+
+**What lucid changes.** Before every tool call, its hook checks whether the plan changed. If it did, the diff goes straight into that agent's context, with a note that the plan overrides its original brief. The worker sees the change before its next edit and applies it, without relying on luck or the lead.
+
+**Cost per working result.** A failed run means the code shipped without your change. In practice you'd notice later and pay for another round of agent work. So the fair comparison divides total spend, failed runs included, by the runs that actually worked:
+
+| Plan changes mid-build | with lucid | without | |
+|---|---|---|---|
+| Haiku 5.5 | $0.041 (34 of 34 passed) | $0.154 (8 of 34 passed) | **3.7× cheaper** |
+| Opus 5.5 | $1.31 (20 of 20 passed) | $6.00 (4 of 20 passed) | **4.6× cheaper** |
+
+Per run, lucid costs 10–13% more, because it does the extra work the change requires. Some per-scenario baselines rest on one or two passing runs, so the overall figures above are the stable ones.
+
 <details>
 <summary>Results by model, raw cost and time per run</summary>
 

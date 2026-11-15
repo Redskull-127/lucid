@@ -120,6 +120,67 @@ export default function Benchmark() {
         </li>
       </ul>
 
+      <H2 id="why-fail">Why runs without lucid fail</H2>
+      <p>
+        All 42 failed runs were without lucid, and in every one the original tasks were done correctly. The only thing
+        missing was the mid-task change: nothing told a running worker that the plan had changed.
+      </p>
+      <Table
+        head={["", "Who", "What happens without lucid"]}
+        rows={[
+          ["1", "Lead", <>Reads <code>PLAN.md</code>, writes briefs, spawns workers A and B.</>],
+          ["2", "Workers", "Read their brief (a snapshot) and work from what’s in their context."],
+          ["3", <strong key="y">You</strong>, <strong key="e">Edit <code>PLAN.md</code> mid-task. Nothing tells anyone.</strong>],
+          ["4", "Workers", <>Finish the <em>original</em> task and report &ldquo;done&rdquo;.</>],
+          ["5", "Lead", <>Sees &ldquo;done&rdquo; from both and reports success. <strong>✗ The change is missing.</strong></>],
+        ]}
+      />
+      <ol>
+        <li>
+          <strong>Workers work from a snapshot.</strong> The plan reaches each worker in its brief, or in one read of{" "}
+          <code>PLAN.md</code> at the start. After that the worker works from its context. Agents don&rsquo;t re-open
+          files they&rsquo;ve already read unless something gives them a reason, so a changed file on disk goes unseen.
+        </li>
+        <li>
+          <strong>Nothing signals the change.</strong> Claude Code doesn&rsquo;t watch files for agents, and editing a
+          file doesn&rsquo;t interrupt anyone.
+        </li>
+        <li>
+          <strong>The lead trusts the reports.</strong> Workers report &ldquo;done&rdquo;, which is true of the task
+          they were given. The lead has no reason to re-check the plan, so it reports success.
+        </li>
+      </ol>
+      <p>
+        <strong>Why some runs without lucid still passed (12 of 54).</strong> Luck in timing, or extra checking. Early
+        changes were caught more often (5 of 13 on the demo repo, against 2 of 13 for late ones), because a worker that
+        happens to re-open <code>PLAN.md</code> mid-task sees the new line. Opus sometimes re-checked the plan at the
+        end and fixed the work itself. That&rsquo;s why those successes cost more and took longer: $1.68 and 115 s,
+        against lucid&rsquo;s $1.58 and 76 s on the same scenario.
+      </p>
+      <p>
+        <strong>What lucid changes.</strong> Before every tool call, its hook checks whether the plan changed. If it
+        did, the diff goes straight into that agent&rsquo;s context, with a note that the plan overrides its original
+        brief. The worker sees the change before its next edit and applies it, without relying on luck or the lead.
+      </p>
+      <H3 id="per-working-result">Cost per working result</H3>
+      <p>
+        A failed run means the code shipped without your change. In practice you&rsquo;d notice later and pay for
+        another round of agent work. So the fair comparison divides total spend, failed runs included, by the runs that
+        actually worked:
+      </p>
+      <Table
+        head={["Plan changes mid-build", "With lucid", "Without", ""]}
+        numeric={[1, 2]}
+        rows={[
+          ["Haiku 5.5", "$0.041 (34 of 34 passed)", "$0.154 (8 of 34 passed)", <strong key="h">3.7× cheaper</strong>],
+          ["Opus 5.5", "$1.31 (20 of 20 passed)", "$6.00 (4 of 20 passed)", <strong key="o">4.6× cheaper</strong>],
+        ]}
+      />
+      <p>
+        Per run, lucid costs 10&ndash;13% more, because it does the extra work the change requires. Some per-scenario
+        baselines rest on one or two passing runs, so the overall figures above are the stable ones.
+      </p>
+
       <H2 id="cost-per-pass">Cost per passing run</H2>
       <p>Total spend divided by the runs that worked. Lower is better.</p>
       <ThemedFigure
