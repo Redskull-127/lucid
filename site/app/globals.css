@@ -395,6 +395,27 @@ pre {
   margin: 0;
 }
 @media (max-width: 639px) {
+  /* keep each install command on one line; scroll sideways rather than wrap mid-command */
+  .install-line {
+    gap: 0.5rem;
+    padding-left: 0.75rem;
+  }
+  .install-line code {
+    font-size: 0.72rem;
+    white-space: pre;
+    overflow-x: auto;
+    overflow-wrap: normal;
+  }
+  .install-line .copy-btn .copy-text {
+    display: none;
+  }
+  .install-line .copy-btn {
+    width: 2rem;
+    justify-content: center;
+    padding: 0;
+  }
+}
+@media (max-width: 639px) {
   .code .copy-btn .copy-text {
     display: none;
   }

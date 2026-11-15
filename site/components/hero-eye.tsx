@@ -51,7 +51,7 @@ export function HeroEye() {
           <div className="terminal">
             <div className="terminal-bar">
               <span className="inline-block h-2 w-2 rounded-full" style={{ background: "var(--lid-a)" }} />
-              Injected before the worker’s next tool call
+              Injected into a running worker
             </div>
             <pre tabIndex={0} className="arrive">
               <code>{renderLines(INJECTED, "output")}</code>
@@ -59,10 +59,6 @@ export function HeroEye() {
           </div>
         </div>
       </div>
-      <figcaption className="mx-auto mt-4 max-w-[34rem] text-center text-[0.9rem] leading-relaxed text-muted lg:mt-0">
-        From a real <code>claude -p</code> run on Haiku. The worker’s brief never mentioned <code>multiply()</code>.
-        A human added one line to the plan, and the worker added it.
-      </figcaption>
     </figure>
   );
 }
