@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="760" height="354" viewBox="0 0 760 354" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
-<title>Cost per passing run (USD): total spend ÷ runs that worked</title><desc>Plan changes early: with lucid $0.031, without $0.061; Plan changes late: with lucid $0.033, without no run passed; Policy in a new session: with lucid $0.024, without $0.022; Simple task: with lucid $0.011, without $0.009</desc>
+<title>Cost per passing run (USD), Haiku 5.5: total spend ÷ runs that worked</title><desc>Plan changes early (while both workers are mid-task): with lucid $0.031, without $0.061; Plan changes late (after both workers' main edits): with lucid $0.033, without no run passed; Policy in a new session (single agent; parity check): with lucid $0.024, without $0.022; Simple task (nothing to coordinate: overhead): with lucid $0.011, without $0.009</desc>
 <rect width="760" height="354" rx="10" fill="#fcfcfb"/>
-<text x="24" y="34" font-size="16" font-weight="600" fill="#0b0b0b">Cost per passing run (USD): total spend ÷ runs that worked</text>
+<text x="24" y="34" font-size="16" font-weight="600" fill="#0b0b0b">Cost per passing run (USD), Haiku 5.5: total spend ÷ runs that worked</text>
 <text x="24" y="55" font-size="12" fill="#52514e">Haiku 5.5 · 4–8 runs per arm · lower is better</text>
 <rect x="24" y="70" width="10" height="10" rx="2" fill="#2a78d6"/>
 <text x="40" y="79" font-size="12" fill="#52514e">with lucid</text>

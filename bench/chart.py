@@ -1,6 +1,9 @@
-"""Render bench/results.jsonl into README charts: assets/bench-{success,cost,time}-{light,dark}.svg
+"""Render bench/results.jsonl into README charts (python3 bench/chart.py; also prints the results tables).
 
-  python3 bench/chart.py            # also prints the markdown results table
+  assets/bench-success-{light,dark}.svg              every model, one 0-100% axis
+  assets/bench-{costpass,cost,time}-<model>-{light,dark}.svg
+                                                     one chart per model: Opus costs ~35x Haiku, so a shared
+                                                     axis would flatten the cheaper model (small multiples, not two scales)
 """
 import json
 import math
@@ -23,19 +26,21 @@ SCENARIOS = (
     ("memory", "Policy in a new session", "single agent; parity check"),
     ("control", "Simple task", "nothing to coordinate: overhead"),
 )
+MODELS = (("haiku", "Haiku 5.5"), ("sonnet", "Sonnet 5.5"), ("opus", "Opus 5.5"))
 FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif"
+mean = statistics.mean
 
 
 def load():
     rows = [json.loads(l) for l in open(os.path.join(HERE, "results.jsonl"))]
     stats = {}
-    for sc, *_ in SCENARIOS:
-        for arm, _ in ARMS:
-            rs = [r for r in rows if r["scenario"] == sc and r["arm"] == arm]
-            if rs:
-                stats[sc, arm] = dict(n=len(rs), passed=sum(r["pass"] for r in rs),
-                                      cost=[r["cost"] for r in rs], time=[r["wall_s"] for r in rs],
-                                      tokens=[r["tokens"] for r in rs])
+    for r in rows:
+        s = stats.setdefault((r["model"], r["scenario"], r["arm"]), dict(n=0, passed=0, cost=[], time=[], tokens=[]))
+        s["n"] += 1
+        s["passed"] += bool(r["pass"])
+        s["cost"].append(r["cost"])
+        s["time"].append(r["wall_s"])
+        s["tokens"].append(r["tokens"])
     return rows, stats
 
 
@@ -56,17 +61,18 @@ def bar(x0, y, w, h, color):
             % (x0, y, x0 + w - r, x0 + w, y, x0 + w, y + r, y + h - r, x0 + w, y + h, x0 + w - r, y + h, x0, color))
 
 
-def chart(metric, title, subtitle, value, spread, label, axis_fmt, maximum, theme):
+def chart(path, title, subtitle, rows, value, spread, label, axis_fmt, maximum, theme):
+    """rows: [(name, sublabel, {arm: stats})]"""
     t = THEMES[theme]
     W, X0, RH, TOP = 760, 236, 54, 104
     PW = W - X0 - 96
-    H = TOP + RH * len(SCENARIOS) + 34
+    H = TOP + RH * len(rows) + 34
     top, step = (100, 25) if maximum is None else nice_max(maximum)
     sx = lambda v: X0 + PW * v / top
     o = ['<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" font-family="%s">'
          % (W, H, W, H, FONT)]
-    desc = "; ".join("%s: %s" % (s[1], ", ".join("%s %s" % (lab, label(STATS[s[0], arm]))
-                                                    for arm, lab in ARMS if (s[0], arm) in STATS)) for s in SCENARIOS)
+    desc = "; ".join("%s (%s): %s" % (name, sub, ", ".join("%s %s" % (lab, label(arms[arm])) for arm, lab in ARMS if arm in arms))
+                     for name, sub, arms in rows)
     o.append("<title>%s</title><desc>%s</desc>" % (title, desc))
     o.append('<rect width="%d" height="%d" rx="10" fill="%s"/>' % (W, H, t["surface"]))
     o.append('<text x="24" y="34" font-size="16" font-weight="600" fill="%s">%s</text>' % (t["ink"], title))
@@ -82,12 +88,12 @@ def chart(metric, title, subtitle, value, spread, label, axis_fmt, maximum, them
         o.append('<line x1="%.1f" y1="%d" x2="%.1f" y2="%d" stroke="%s" stroke-width="1"/>' % (x, TOP - 8, x, H - 30, t["grid"]))
         o.append('<text x="%.1f" y="%d" font-size="11" fill="%s" text-anchor="middle">%s</text>' % (x, H - 14, t["muted"], axis_fmt(v)))
         v += step
-    for i, (sc, name, sub) in enumerate(SCENARIOS):
+    for i, (name, sub, arms) in enumerate(rows):
         y = TOP + i * RH
         o.append('<text x="24" y="%d" font-size="13" font-weight="500" fill="%s">%s</text>' % (y + 19, t["ink"], name))
         o.append('<text x="24" y="%d" font-size="11" fill="%s">%s</text>' % (y + 35, t["muted"], sub))
         for j, ((arm, _), color) in enumerate(zip(ARMS, t["series"])):
-            s = STATS.get((sc, arm))
+            s = arms.get(arm)
             if not s:
                 continue
             by = y + 6 + j * 16  # 14px bars, 2px surface gap between the pair
@@ -102,39 +108,51 @@ def chart(metric, title, subtitle, value, spread, label, axis_fmt, maximum, them
             o.append('<text x="%.1f" y="%.1f" font-size="12" fill="%s" style="font-variant-numeric:tabular-nums">%s</text>'
                      % (tip + 6, by + 11, t["ink2"], label(s)))
     o.append("</svg>")
-    path = os.path.join(OUT, "bench-%s-%s.svg" % (metric, theme))
-    with open(path, "w") as f:
+    with open(os.path.join(OUT, path), "w") as f:
         f.write("\n".join(o) + "\n")
-    return path
+
+
+def runs_label(ns):
+    ns = sorted(ns)
+    return "%d" % ns[0] if ns[0] == ns[-1] else "%d–%d" % (ns[0], ns[-1])
 
 
 if __name__ == "__main__":
     ROWS, STATS = load()
-    model = sorted({{"haiku": "Haiku 5.5", "sonnet": "Sonnet 5.5", "opus": "Opus 5.5"}.get(r["model"], r["model"]) for r in ROWS})
-    ns = sorted({s["n"] for s in STATS.values()})
-    meta = "%s · %s runs per arm" % ("/".join(model), "–".join(map(str, (ns[0], ns[-1]))) if len(ns) > 1 else ns[0])
-    mean = statistics.mean
+    models = [(m, name) for m, name in MODELS if any(k[0] == m for k in STATS)]
+    arms_of = lambda m, sc: {arm: STATS[m, sc, arm] for arm, _ in ARMS if (m, sc, arm) in STATS}
+    per_pass = lambda s: sum(s["cost"]) / s["passed"] if s["passed"] else 0
+    success_rows = [(name, "%s · %d runs per arm" % (mname, max(s["n"] for s in arms_of(m, sc).values())), arms_of(m, sc))
+                    for sc, name, _ in SCENARIOS for m, mname in models if arms_of(m, sc)]
     for theme in THEMES:
-        chart("success", "Task success: hidden acceptance test passed", meta + " · identical prompts; only the plugin differs",
-              lambda s: 100 * s["passed"] / s["n"], None,
+        chart("bench-success-%s.svg" % theme, "Task success: hidden acceptance test passed",
+              "Claude Code headless · identical prompts and tools; only the plugin differs",
+              success_rows, lambda s: 100 * s["passed"] / s["n"], None,
               lambda s: "%d%%  (%d/%d)" % (round(100 * s["passed"] / s["n"]), s["passed"], s["n"]),
               lambda v: "%d%%" % v, None, theme)
-        chart("cost", "Cost per run (USD, all agents)", meta + " · bar = mean, whisker = min–max",
-              lambda s: mean(s["cost"]), lambda s: (min(s["cost"]), max(s["cost"])),
-              lambda s: "$%.3f" % mean(s["cost"]), lambda v: "$%.2f" % v,
-              max(max(s["cost"]) for s in STATS.values()), theme)
-        per_pass = lambda s: sum(s["cost"]) / s["passed"] if s["passed"] else 0
-        chart("costpass", "Cost per passing run (USD): total spend ÷ runs that worked", meta + " · lower is better",
-              per_pass, None, lambda s: "$%.3f" % per_pass(s) if s["passed"] else "no run passed",
-              lambda v: "$%.2f" % v, max(per_pass(s) for s in STATS.values()), theme)
-        chart("time", "Wall-clock time per run (seconds)", meta + " · bar = mean, whisker = min–max",
-              lambda s: mean(s["time"]), lambda s: (min(s["time"]), max(s["time"])),
-              lambda s: "%.0f s" % mean(s["time"]), lambda v: "%d" % v,
-              max(max(s["time"]) for s in STATS.values()), theme)
-    print("| Scenario | Arm | Success | Mean cost | Mean time | Mean tokens |\n|---|---|---|---|---|---|")
-    for sc, name, _ in SCENARIOS:
-        for arm, lab in ARMS:
-            s = STATS.get((sc, arm))
-            if s:
-                print("| %s | %s | %d/%d | $%.3f | %.0f s | %s |" % (name, lab, s["passed"], s["n"], mean(s["cost"]),
-                                                                  mean(s["time"]), format(int(mean(s["tokens"])), ",")))
+        for m, mname in models:
+            rows = [(name, sub, arms_of(m, sc)) for sc, name, sub in SCENARIOS if arms_of(m, sc)]
+            stats = [s for _, _, arms in rows for s in arms.values()]
+            meta = "%s · %s runs per arm" % (mname, runs_label(s["n"] for s in stats))
+            chart("bench-costpass-%s-%s.svg" % (m, theme), "Cost per passing run (USD), %s: total spend ÷ runs that worked" % mname,
+                  meta + " · lower is better", rows, per_pass, None,
+                  lambda s: "$%.3f" % per_pass(s) if s["passed"] else "no run passed",
+                  lambda v: "$%.2f" % v, max(per_pass(s) for s in stats), theme)
+            chart("bench-cost-%s-%s.svg" % (m, theme), "Cost per run (USD, all agents), %s" % mname,
+                  meta + " · bar = mean, whisker = min–max", rows, lambda s: mean(s["cost"]),
+                  lambda s: (min(s["cost"]), max(s["cost"])), lambda s: "$%.3f" % mean(s["cost"]),
+                  lambda v: "$%.2f" % v, max(max(s["cost"]) for s in stats), theme)
+            chart("bench-time-%s-%s.svg" % (m, theme), "Wall-clock time per run (seconds), %s" % mname,
+                  meta + " · bar = mean, whisker = min–max", rows, lambda s: mean(s["time"]),
+                  lambda s: (min(s["time"]), max(s["time"])), lambda s: "%.0f s" % mean(s["time"]),
+                  lambda v: "%d" % v, max(max(s["time"]) for s in stats), theme)
+    print("| Model | Scenario | Arm | Success | Mean cost | Cost per pass | Mean time |\n|---|---|---|---|---|---|---|")
+    for m, mname in models:
+        for sc, name, _ in SCENARIOS:
+            for arm, lab in ARMS:
+                s = STATS.get((m, sc, arm))
+                if s:
+                    print("| %s | %s | %s | %d/%d | $%.3f | %s | %.0f s |" % (
+                        mname, name, lab, s["passed"], s["n"], mean(s["cost"]),
+                        "$%.3f" % per_pass(s) if s["passed"] else "—", mean(s["time"])))
+    print("total spend by model: " + ", ".join("%s $%.2f" % (mn, sum(r["cost"] for r in ROWS if r["model"] == m)) for m, mn in models))

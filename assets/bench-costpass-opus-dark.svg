@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="300" viewBox="0 0 760 300" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+<title>Cost per passing run (USD), Opus 5.5: total spend ÷ runs that worked</title><desc>Plan changes early (while both workers are mid-task): with lucid $1.006, without $4.572; Plan changes late (after both workers' main edits): with lucid $1.064, without $2.352; Simple task (nothing to coordinate: overhead): with lucid $0.371, without $0.345</desc>
+<rect width="760" height="300" rx="10" fill="#1a1a19"/>
+<text x="24" y="34" font-size="16" font-weight="600" fill="#f0efec">Cost per passing run (USD), Opus 5.5: total spend ÷ runs that worked</text>
+<text x="24" y="55" font-size="12" fill="#c3c2b7">Opus 5.5 · 3–5 runs per arm · lower is better</text>
+<rect x="24" y="70" width="10" height="10" rx="2" fill="#3987e5"/>
+<text x="40" y="79" font-size="12" fill="#c3c2b7">with lucid</text>
+<rect x="132" y="70" width="10" height="10" rx="2" fill="#d95926"/>
+<text x="148" y="79" font-size="12" fill="#c3c2b7">without</text>
+<line x1="236.0" y1="96" x2="236.0" y2="270" stroke="#2c2c2a" stroke-width="1"/>
+<text x="236.0" y="286" font-size="11" fill="#898781" text-anchor="middle">$0.00</text>
+<line x1="321.6" y1="96" x2="321.6" y2="270" stroke="#2c2c2a" stroke-width="1"/>
+<text x="321.6" y="286" font-size="11" fill="#898781" text-anchor="middle">$1.00</text>
+<line x1="407.2" y1="96" x2="407.2" y2="270" stroke="#2c2c2a" stroke-width="1"/>
+<text x="407.2" y="286" font-size="11" fill="#898781" text-anchor="middle">$2.00</text>
+<line x1="492.8" y1="96" x2="492.8" y2="270" stroke="#2c2c2a" stroke-width="1"/>
+<text x="492.8" y="286" font-size="11" fill="#898781" text-anchor="middle">$3.00</text>
+<line x1="578.4" y1="96" x2="578.4" y2="270" stroke="#2c2c2a" stroke-width="1"/>
+<text x="578.4" y="286" font-size="11" fill="#898781" text-anchor="middle">$4.00</text>
+<line x1="664.0" y1="96" x2="664.0" y2="270" stroke="#2c2c2a" stroke-width="1"/>
+<text x="664.0" y="286" font-size="11" fill="#898781" text-anchor="middle">$5.00</text>
+<text x="24" y="123" font-size="13" font-weight="500" fill="#f0efec">Plan changes early</text>
+<text x="24" y="139" font-size="11" fill="#898781">while both workers are mid-task</text>
+<path d="M236.0 110.0H318.2Q322.2 110.0 322.2 114.0V120.0Q322.2 124.0 318.2 124.0H236.0Z" fill="#3987e5"/>
+<text x="328.2" y="121.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$1.006</text>
+<path d="M236.0 126.0H623.4Q627.4 126.0 627.4 130.0V136.0Q627.4 140.0 623.4 140.0H236.0Z" fill="#d95926"/>
+<text x="633.4" y="137.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$4.572</text>
+<text x="24" y="177" font-size="13" font-weight="500" fill="#f0efec">Plan changes late</text>
+<text x="24" y="193" font-size="11" fill="#898781">after both workers' main edits</text>
+<path d="M236.0 164.0H323.1Q327.1 164.0 327.1 168.0V174.0Q327.1 178.0 323.1 178.0H236.0Z" fill="#3987e5"/>
+<text x="333.1" y="175.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$1.064</text>
+<path d="M236.0 180.0H433.3Q437.3 180.0 437.3 184.0V190.0Q437.3 194.0 433.3 194.0H236.0Z" fill="#d95926"/>
+<text x="443.3" y="191.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$2.352</text>
+<text x="24" y="231" font-size="13" font-weight="500" fill="#f0efec">Simple task</text>
+<text x="24" y="247" font-size="11" fill="#898781">nothing to coordinate: overhead</text>
+<path d="M236.0 218.0H263.7Q267.7 218.0 267.7 222.0V228.0Q267.7 232.0 263.7 232.0H236.0Z" fill="#3987e5"/>
+<text x="273.7" y="229.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$0.371</text>
+<path d="M236.0 234.0H261.6Q265.6 234.0 265.6 238.0V244.0Q265.6 248.0 261.6 248.0H236.0Z" fill="#d95926"/>
+<text x="271.6" y="245.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$0.345</text>
+</svg>

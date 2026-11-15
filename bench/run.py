@@ -153,7 +153,12 @@ def replan_trigger(d, stop, info, when):
         time.sleep(0.2)
 
 
+SPENT, SPENT_LOCK = [0.0], threading.Lock()
+
+
 def run_one(scenario, arm, i):
+    if SPENT[0] >= ARGS.budget:  # hard cap: stop launching runs once the budget is spent
+        return None
     d = make_repo(scenario, arm)
     stop, info = threading.Event(), {}
     if scenario.startswith("replan"):
@@ -163,6 +168,8 @@ def run_one(scenario, arm, i):
         r = claude(d, prompt, arm)
         for k in ("cost", "turns", "tokens", "wall_s"):
             res[k] += r.get(k, 0) or 0
+        with SPENT_LOCK:
+            SPENT[0] += r.get("cost", 0) or 0
         if r.get("error"):
             res["error"] = r["error"]
     stop.set()
@@ -173,7 +180,8 @@ def run_one(scenario, arm, i):
     except (ValueError, IndexError):
         res["checks"] = {"crashed": False}
     res["pass"] = bool(res["checks"]) and all(res["checks"].values())
-    res.update(info, dir=d)
+    res.update(info)
+    res["_dir"] = d  # printed for failures, never written
     if scenario.startswith("replan") and "replan_at_s" not in info:
         res["note"] = "workers never edited; replan not triggered"
     return res
@@ -186,13 +194,17 @@ if __name__ == "__main__":
     ap.add_argument("--model", default="haiku")
     ap.add_argument("--scenarios", default="replan-early,replan-late,memory,control")
     ap.add_argument("--out", default=os.path.join(HERE, "results.jsonl"))
+    ap.add_argument("--budget", type=float, default=float("inf"), help="USD; no new runs start once spent")
     ARGS = ap.parse_args()
     jobs = [(s, arm, i) for i in range(ARGS.runs) for s in ARGS.scenarios.split(",") for arm in ("lucid", "baseline")]
     with concurrent.futures.ThreadPoolExecutor(ARGS.j) as pool, open(ARGS.out, "a") as out:
         for fut in concurrent.futures.as_completed([pool.submit(run_one, *j) for j in jobs]):
             r = fut.result()
+            if r is None:
+                continue
+            d = r.pop("_dir")
             out.write(json.dumps(r) + "\n")
             out.flush()
             print("%-8s %-8s #%d pass=%-5s $%.3f %4.0fs %s" % (r["scenario"], r["arm"], r["run"], r["pass"], r["cost"],
                                                                r["wall_s"], r.get("error") or r.get("note") or r["checks"]),
-                  flush=True)
+                  "" if r["pass"] else d, flush=True)

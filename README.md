@@ -72,50 +72,73 @@ The memory is wired in through hooks, so agents can't forget to check it. Agents
 
 ## 📊 Benchmark
 
-The same tasks run **with and without lucid**. Everything else is identical: the model (Claude Haiku 5.5, headless `claude -p`), the prompts, the tools, a fresh git repo per run, and project settings only (no personal plugins, hooks or CLAUDE.md). A hidden acceptance test the agents never see scores the final code. The 48 runs shown cost $1.23 in total.
+The same tasks run **with and without lucid**, on **Claude Haiku 5.5 and Claude Opus 5.5** through headless `claude -p`. Everything else is identical: the prompts, the tools, a fresh git repo per run, and project settings only (no personal plugins, hooks or CLAUDE.md). A hidden acceptance test the agents never see scores the final code. The 74 runs shown cost $23.01 in total.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/bench-success-dark.svg">
-  <img alt="Task success with vs without lucid: plan changes early 8/8 vs 4/8, plan changes late 8/8 vs 0/8, policy in a new session 4/4 vs 4/4, simple task 4/4 vs 4/4" src="assets/bench-success-light.svg" width="100%">
+  <img alt="Task success with vs without lucid. Haiku: plan changes early 8/8 vs 4/8, late 8/8 vs 0/8, policy 4/4 vs 4/4, simple 4/4 vs 4/4. Opus: early 5/5 vs 1/5, late 5/5 vs 2/5, simple 3/3 vs 3/3" src="assets/bench-success-light.svg" width="100%">
 </picture>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/bench-costpass-dark.svg">
-  <img alt="Cost per passing run: plan changes early $0.031 vs $0.061, plan changes late $0.033 vs no run passed, policy $0.024 vs $0.022, simple task $0.011 vs $0.009" src="assets/bench-costpass-light.svg" width="100%">
-</picture>
+- **Plan changes early:** two workers run in parallel, and you edit `PLAN.md` at the first worker edit.
+- **Plan changes late:** the same, but the edit lands after both workers' main edits.
+- **Policy in a new session:** session 1 hears an unwritten policy, and a fresh session 2 must follow it.
+- **Simple task:** one agent, nothing to coordinate. This measures the overhead.
 
-| Scenario | What happens | with lucid | without |
+| Scenario | Model | with lucid | without |
 |---|---|---|---|
-| Plan changes early | Two workers in parallel; you edit `PLAN.md` at the first worker edit | **8/8** · $0.031 | 4/8 · $0.030 |
-| Plan changes late | Same, but the edit lands after both workers' main edits | **8/8** · $0.033 | **0/8** · $0.026 |
-| Policy in a new session | Session 1 hears an unwritten policy; a fresh session 2 must follow it | 4/4 · $0.024 | 4/4 · $0.022 |
-| Simple task | One agent, nothing to coordinate | 4/4 · $0.011 | 4/4 · $0.009 |
+| Plan changes early | Haiku 5.5 | **8/8** · $0.031 | 4/8 · $0.030 |
+| | Opus 5.5 | **5/5** · $1.01 | 1/5 · $0.91 |
+| Plan changes late | Haiku 5.5 | **8/8** · $0.033 | **0/8** · $0.026 |
+| | Opus 5.5 | **5/5** · $1.06 | 2/5 · $0.94 |
+| Policy in a new session | Haiku 5.5 | 4/4 · $0.024 | 4/4 · $0.022 |
+| Simple task | Haiku 5.5 | 4/4 · $0.011 | 4/4 · $0.009 |
+| | Opus 5.5 | 3/3 · $0.37 | 3/3 · $0.35 |
 
 Cells show runs passed and mean cost per run.
 
-**What it shows**
-- **Plan changes mid-build: 16/16 with lucid, 4/16 without.** Without lucid, workers finish on the plan they started with, and a late change was missed every time. With lucid, the diff arrives before each worker's next tool call.
-- **Cheaper per working result.** lucid runs cost a little more, because they do the extra work the change requires. Per *passing* run they cost half as much on early changes ($0.031 vs $0.061), and the baseline never passed on late ones.
-- **One agent across sessions: parity.** Claude Code's built-in memory already carries the policy forward. lucid matches it; it doesn't beat it.
-- **Overhead when there's nothing to coordinate:** about +$0.002 and +5 s per run on a trivial task, from the hooks and the injected context.
-- **It found a lucid bug.** The first memory run failed 1 of 4 because a finished session's file claim blocked the next session. Claims now release on `SessionEnd`, and the scenario was rerun.
-
-<details>
-<summary>Raw cost and time per run</summary>
-
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/bench-cost-dark.svg">
-  <img alt="Mean cost per run with min-max range for each scenario, with vs without lucid" src="assets/bench-cost-light.svg" width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/bench-costpass-opus-dark.svg">
+  <img alt="Opus 5.5 cost per passing run: plan changes early $1.01 vs $4.57, late $1.06 vs $2.35, simple task $0.37 vs $0.35" src="assets/bench-costpass-opus-light.svg" width="100%">
 </picture>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/bench-time-dark.svg">
-  <img alt="Mean wall-clock seconds per run with min-max range for each scenario, with vs without lucid" src="assets/bench-time-light.svg" width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/bench-costpass-haiku-dark.svg">
+  <img alt="Haiku 5.5 cost per passing run: plan changes early $0.031 vs $0.061, late $0.033 vs no run passed, policy $0.024 vs $0.022, simple task $0.011 vs $0.009" src="assets/bench-costpass-haiku-light.svg" width="100%">
+</picture>
+
+**What it shows**
+- **Plan changes mid-build: 26/26 with lucid, 7/26 without, across both models.** Without lucid, Haiku missed every late change (0/8). Opus did better by re-checking the plan at the end (2/5), but still missed most changes. With lucid, the diff arrives before each worker's next tool call.
+- **Cheaper per working result.** lucid runs cost 2–26% more, because they do the extra work the change requires. Per *passing* run they cost about half as much on Haiku ($0.031 vs $0.061). On Opus they cost $1.01 vs $4.57 for early changes and $1.06 vs $2.35 for late ones.
+- **One agent across sessions: parity.** Claude Code's built-in memory already carries the policy forward. lucid matches it; it doesn't beat it.
+- **Overhead when there's nothing to coordinate:** +$0.002 and +5 s per run on Haiku, and +$0.026 (+7%) and +6 s on Opus. That comes from the hooks and the injected context.
+- **It found a lucid bug.** The first memory run failed 1 of 4 because a finished session's file claim blocked the next session. Claims now release on `SessionEnd`, and the scenario was rerun.
+
+<details>
+<summary>Raw cost and time per run, per model</summary>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/bench-cost-opus-dark.svg">
+  <img alt="Opus 5.5 mean cost per run with min-max range, with vs without lucid" src="assets/bench-cost-opus-light.svg" width="100%">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/bench-time-opus-dark.svg">
+  <img alt="Opus 5.5 mean wall-clock seconds per run with min-max range, with vs without lucid" src="assets/bench-time-opus-light.svg" width="100%">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/bench-cost-haiku-dark.svg">
+  <img alt="Haiku 5.5 mean cost per run with min-max range, with vs without lucid" src="assets/bench-cost-haiku-light.svg" width="100%">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/bench-time-haiku-dark.svg">
+  <img alt="Haiku 5.5 mean wall-clock seconds per run with min-max range, with vs without lucid" src="assets/bench-time-haiku-light.svg" width="100%">
 </picture>
 
 </details>
 
-To reproduce, run `python3 bench/run.py --runs 8 -j 4 && python3 bench/chart.py`. Raw results are in [`bench/results.jsonl`](bench/results.jsonl). The samples are small (4–8 runs per arm) and cover one model and one small codebase, so treat this as a strong signal, not a paper.
+To reproduce, run `python3 bench/run.py --runs 8 -j 4` (Haiku, about $1.50), or add `--model opus --budget 30` (about $1 per run). Then run `python3 bench/chart.py`. Raw results are in [`bench/results.jsonl`](bench/results.jsonl). The samples are small (3–8 runs per arm) and cover one small codebase. To keep spend down, the Opus set skips the memory scenario. Treat this as a strong signal, not a paper.
 
 ## 📦 Install
 
