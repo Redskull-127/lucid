@@ -1,0 +1,23 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Self-check (behaviour, edge cases, concurrency, performance)
+        run: python3 test_lucid.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate plugin manifest, hooks and skills
+        run: npx --yes @anthropic-ai/claude-code@2.1.325 plugin validate . --strict
