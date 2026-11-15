@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="354" viewBox="0 0 760 354" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+<title>Task success: hidden acceptance test passed</title><desc>Plan changes early: with lucid 100%  (8/8), without 50%  (4/8); Plan changes late: with lucid 100%  (8/8), without 0%  (0/8); Policy in a new session: with lucid 100%  (4/4), without 100%  (4/4); Simple task: with lucid 100%  (4/4), without 100%  (4/4)</desc>
+<rect width="760" height="354" rx="10" fill="#1a1a19"/>
+<text x="24" y="34" font-size="16" font-weight="600" fill="#f0efec">Task success: hidden acceptance test passed</text>
+<text x="24" y="55" font-size="12" fill="#c3c2b7">Haiku 5.5 · 4–8 runs per arm · identical prompts; only the plugin differs</text>
+<rect x="24" y="70" width="10" height="10" rx="2" fill="#3987e5"/>
+<text x="40" y="79" font-size="12" fill="#c3c2b7">with lucid</text>
+<rect x="132" y="70" width="10" height="10" rx="2" fill="#d95926"/>
+<text x="148" y="79" font-size="12" fill="#c3c2b7">without</text>
+<line x1="236.0" y1="96" x2="236.0" y2="324" stroke="#2c2c2a" stroke-width="1"/>
+<text x="236.0" y="340" font-size="11" fill="#898781" text-anchor="middle">0%</text>
+<line x1="343.0" y1="96" x2="343.0" y2="324" stroke="#2c2c2a" stroke-width="1"/>
+<text x="343.0" y="340" font-size="11" fill="#898781" text-anchor="middle">25%</text>
+<line x1="450.0" y1="96" x2="450.0" y2="324" stroke="#2c2c2a" stroke-width="1"/>
+<text x="450.0" y="340" font-size="11" fill="#898781" text-anchor="middle">50%</text>
+<line x1="557.0" y1="96" x2="557.0" y2="324" stroke="#2c2c2a" stroke-width="1"/>
+<text x="557.0" y="340" font-size="11" fill="#898781" text-anchor="middle">75%</text>
+<line x1="664.0" y1="96" x2="664.0" y2="324" stroke="#2c2c2a" stroke-width="1"/>
+<text x="664.0" y="340" font-size="11" fill="#898781" text-anchor="middle">100%</text>
+<text x="24" y="123" font-size="13" font-weight="500" fill="#f0efec">Plan changes early</text>
+<text x="24" y="139" font-size="11" fill="#898781">while both workers are mid-task</text>
+<path d="M236.0 110.0H660.0Q664.0 110.0 664.0 114.0V120.0Q664.0 124.0 660.0 124.0H236.0Z" fill="#3987e5"/>
+<text x="670.0" y="121.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">100%  (8/8)</text>
+<path d="M236.0 126.0H446.0Q450.0 126.0 450.0 130.0V136.0Q450.0 140.0 446.0 140.0H236.0Z" fill="#d95926"/>
+<text x="456.0" y="137.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">50%  (4/8)</text>
+<text x="24" y="177" font-size="13" font-weight="500" fill="#f0efec">Plan changes late</text>
+<text x="24" y="193" font-size="11" fill="#898781">after both workers' main edits</text>
+<path d="M236.0 164.0H660.0Q664.0 164.0 664.0 168.0V174.0Q664.0 178.0 660.0 178.0H236.0Z" fill="#3987e5"/>
+<text x="670.0" y="175.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">100%  (8/8)</text>
+
+<text x="242.0" y="191.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">0%  (0/8)</text>
+<text x="24" y="231" font-size="13" font-weight="500" fill="#f0efec">Policy in a new session</text>
+<text x="24" y="247" font-size="11" fill="#898781">single agent; parity check</text>
+<path d="M236.0 218.0H660.0Q664.0 218.0 664.0 222.0V228.0Q664.0 232.0 660.0 232.0H236.0Z" fill="#3987e5"/>
+<text x="670.0" y="229.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">100%  (4/4)</text>
+<path d="M236.0 234.0H660.0Q664.0 234.0 664.0 238.0V244.0Q664.0 248.0 660.0 248.0H236.0Z" fill="#d95926"/>
+<text x="670.0" y="245.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">100%  (4/4)</text>
+<text x="24" y="285" font-size="13" font-weight="500" fill="#f0efec">Simple task</text>
+<text x="24" y="301" font-size="11" fill="#898781">nothing to coordinate: overhead</text>
+<path d="M236.0 272.0H660.0Q664.0 272.0 664.0 276.0V282.0Q664.0 286.0 660.0 286.0H236.0Z" fill="#3987e5"/>
+<text x="670.0" y="283.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">100%  (4/4)</text>
+<path d="M236.0 288.0H660.0Q664.0 288.0 664.0 292.0V298.0Q664.0 302.0 660.0 302.0H236.0Z" fill="#d95926"/>
+<text x="670.0" y="299.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">100%  (4/4)</text>
+</svg>

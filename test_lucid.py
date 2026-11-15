@@ -137,6 +137,11 @@ last = pr.cli("log").stdout.strip().splitlines()[-1].split()[-1]
 pr.put(".lucid/digest.md", "<!-- lucid:upto=%s -->\nUse bcryptjs, not bcrypt.\n" % last)
 s = pr.cli("--as", main, "status").stdout
 assert "Use bcryptjs" in s and "bcrypt native" not in s, s
+# a session that ends releases its claims, so the next session isn't blocked (found by the benchmark)
+assert pr.cli("--as", main, "claim", "tax.py").returncode == 0
+assert pr.edit({"session_id": "S2"}, "tax.py").get("permissionDecision") == "deny"
+pr.hook("SessionEnd")
+assert "permissionDecision" not in pr.edit({"session_id": "S2"}, "tax.py")
 print("core behaviour ok")
 
 # ======================= edge cases =======================

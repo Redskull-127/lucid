@@ -417,6 +417,9 @@ def hook(event):
             return 2
         if event == "SubagentStop" and fold(mine)[1].get(me):
             append(agent=me, kind="release", globs=[], text="all (agent stopped)")
+    if event == "SessionEnd":  # bench: an ended session's claim blocked the next session for the whole TTL
+        if fold([e for e in entries(0)[0] if e["agent"] == me])[1].get(me):
+            append(agent=me, kind="release", globs=[], text="all (session ended)")
     return 0
 
 

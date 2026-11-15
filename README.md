@@ -21,6 +21,7 @@
 <p align="center">
   <a href="#-install">Install</a> ·
   <a href="#-how-it-works">How it works</a> ·
+  <a href="#-benchmark">Benchmark</a> ·
   <a href="#-commands">Commands</a> ·
   <a href="#-seen-in-a-real-run">Real run</a> ·
   <a href="#-honest-limits">Limits</a>
@@ -36,8 +37,8 @@ You build a feature with several Claude agents working at once, then change your
 |---|---|
 | 🧭 **Plan drift** | Workers that are already running still follow the plan they were spawned with. Nothing tells them it changed. |
 | 📉 **Lossy handoffs** | A subagent's summary leaves out the *why*, and leaves out the *"we tried X, it broke"*. |
-| 🔁 **Repeated exploration** | Every worker re-reads and re-searches the same code. |
-| 🫥 **Lost after `/compact`** | Decisions disappear when the conversation is compacted and in new sessions. |
+| 🔁 **Repeated work** | Every worker re-reads and re-searches the same code. |
+| 🫥 **Compaction amnesia** | Decisions disappear when the conversation is compacted and in new sessions. |
 | 💥 **Overwritten work** | Two agents edit the same file and one loses its changes. |
 
 ## ✨ What lucid does
@@ -46,35 +47,75 @@ lucid gives every agent in the project **one shared memory**, the dream, kept as
 
 | File | What it holds |
 |---|---|
-| 📜 `plan.md` | **The live plan.** When anyone edits it, every running agent gets the diff before its next tool call. |
-| 🧠 `log.jsonl` | **An append-only memory:** decisions (with why), facts (with `path:line` evidence), dead ends, blockers and file claims. |
-| 💤 `digest.md` | **A consolidated summary**, written when you run `/lucid:dream`. |
+| `plan.md` | **The live plan.** When anyone edits it, every running agent gets the diff before its next tool call. |
+| `log.jsonl` | **An append-only memory:** decisions (with why), facts (with `path:line` evidence), dead ends, blockers and file claims. |
+| `digest.md` | **A consolidated summary**, written when you run `/lucid:dream`. |
 
 The memory is wired in through hooks, so agents can't forget to check it. Agents only add to the log and never rewrite it. A fact whose cited code has changed is flagged **⚠stale**, so shared memory doesn't spread outdated claims.
 
 ## 🔭 How it works
 
-```mermaid
-flowchart LR
-    U(["🧑 You"]) -->|"edit plan · /lucid:replan"| P
-    subgraph D["🌙 .lucid/ (the shared dream)"]
-        P["📜 plan.md<br/>live plan"]
-        L["🧠 log.jsonl<br/>decisions · facts · dead ends<br/>blockers · file claims"]
-    end
-    D -->|"on start: full digest"| A
-    D -->|"before each tool call:<br/>only what changed"| A
-    A["🤖 Lead · subagents · teammates"] -->|"lucid note · claim"| L
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/how-it-works-dark.svg">
+  <img alt="You edit .lucid/plan.md; hooks inject the full dream into every agent on start and only what changed before each tool call; agents write back with lucid note and lucid claim." src="assets/how-it-works-light.svg" width="100%">
+</picture>
 
 | Hook | What it does |
 |---|---|
-| **SessionStart** (also after `/compact`) · **SubagentStart** | Injects the plan, the live memory and active claims. Subagents start with the full shared context instead of a one-paragraph brief. |
+| **SessionStart** (also after `/compact`) · **SubagentStart** | Injects the plan, the live memory and active claims, within a fixed budget. Subagents and Agent-Teams teammates start with the full shared context instead of a one-paragraph brief. |
 | **UserPromptSubmit** · **PreToolUse** | Injects only what *other* agents wrote since you last looked. When nothing changed it injects nothing and costs no tokens. |
-| **PreToolUse** on edits | 🔒 Blocks an edit to a file that another active agent has claimed. |
+| **PreToolUse** on edits | 🔒 Blocks a write to a file another active agent has claimed, whether it goes through Edit/Write or through Bash (`>`, `sed -i`, `cp`/`mv`, scripts that `open(…, 'w')`). |
 | **PreToolUse** on Bash | Adds the calling agent's real id to every `lucid` command, so every entry records who wrote it and agents never have to manage ids. |
 | **SubagentStop** · **TaskCompleted** | Asks once for notes from an agent that edited files but logged nothing. A stopping subagent's claims are released. |
 
-> lucid stays **inactive** until a project opts in with `lucid init`. In every other project the hooks only run a quick check that `.lucid/` doesn't exist.
+> lucid stays **inactive** until a project opts in with `lucid init`. In every other project a tiny shell guard checks for `.lucid/` and exits without starting Python. It works from repo subfolders and git worktrees, which share the main checkout's dream.
+
+## 📊 Benchmark
+
+The same tasks run **with and without lucid**. Everything else is identical: the model (Claude Haiku 5.5, headless `claude -p`), the prompts, the tools, a fresh git repo per run, and project settings only (no personal plugins, hooks or CLAUDE.md). A hidden acceptance test the agents never see scores the final code. The 48 runs shown cost $1.23 in total.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/bench-success-dark.svg">
+  <img alt="Task success with vs without lucid: plan changes early 8/8 vs 4/8, plan changes late 8/8 vs 0/8, policy in a new session 4/4 vs 4/4, simple task 4/4 vs 4/4" src="assets/bench-success-light.svg" width="100%">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/bench-costpass-dark.svg">
+  <img alt="Cost per passing run: plan changes early $0.031 vs $0.061, plan changes late $0.033 vs no run passed, policy $0.024 vs $0.022, simple task $0.011 vs $0.009" src="assets/bench-costpass-light.svg" width="100%">
+</picture>
+
+| Scenario | What happens | with lucid | without |
+|---|---|---|---|
+| Plan changes early | Two workers in parallel; you edit `PLAN.md` at the first worker edit | **8/8** · $0.031 | 4/8 · $0.030 |
+| Plan changes late | Same, but the edit lands after both workers' main edits | **8/8** · $0.033 | **0/8** · $0.026 |
+| Policy in a new session | Session 1 hears an unwritten policy; a fresh session 2 must follow it | 4/4 · $0.024 | 4/4 · $0.022 |
+| Simple task | One agent, nothing to coordinate | 4/4 · $0.011 | 4/4 · $0.009 |
+
+Cells show runs passed and mean cost per run.
+
+**What it shows**
+- **Plan changes mid-build: 16/16 with lucid, 4/16 without.** Without lucid, workers finish on the plan they started with, and a late change was missed every time. With lucid, the diff arrives before each worker's next tool call.
+- **Cheaper per working result.** lucid runs cost a little more, because they do the extra work the change requires. Per *passing* run they cost half as much on early changes ($0.031 vs $0.061), and the baseline never passed on late ones.
+- **One agent across sessions: parity.** Claude Code's built-in memory already carries the policy forward. lucid matches it; it doesn't beat it.
+- **Overhead when there's nothing to coordinate:** about +$0.002 and +5 s per run on a trivial task, from the hooks and the injected context.
+- **It found a lucid bug.** The first memory run failed 1 of 4 because a finished session's file claim blocked the next session. Claims now release on `SessionEnd`, and the scenario was rerun.
+
+<details>
+<summary>Raw cost and time per run</summary>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/bench-cost-dark.svg">
+  <img alt="Mean cost per run with min-max range for each scenario, with vs without lucid" src="assets/bench-cost-light.svg" width="100%">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/bench-time-dark.svg">
+  <img alt="Mean wall-clock seconds per run with min-max range for each scenario, with vs without lucid" src="assets/bench-time-light.svg" width="100%">
+</picture>
+
+</details>
+
+To reproduce, run `python3 bench/run.py --runs 8 -j 4 && python3 bench/chart.py`. Raw results are in [`bench/results.jsonl`](bench/results.jsonl). The samples are small (4–8 runs per arm) and cover one model and one small codebase, so treat this as a strong signal, not a paper.
 
 ## 📦 Install
 
@@ -138,15 +179,21 @@ The worker added `multiply()`. In the same run, it logged a note before it had f
 
 **Two workers in parallel.** `/lucid:swarm` split a task into `shop/pricing.py` and `shop/cart.py`, one worker each. The moment the cart worker claimed its file, a human added a requirement spanning both files: *"`Cart.total()` must apply `discount()` over 100"*. The cart worker got the diff mid-task, applied it itself, and logged the decision. Both claims were released automatically. A hidden acceptance test the agents never saw passed 4/4.
 
-These runs also uncovered two bugs, both fixed:
+**Agent Teams, live in tmux.** With `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, the lead picked `/lucid:swarm` on its own and spawned `@pricing-worker` and `@cart-worker` as in-process teammates. lucid's hooks fired inside both teammates: start, every tool call, plan edits and stop, each under the teammate's own id. Both claimed, worked, logged and were auto-released.
+
+**Real `/compact`.** After a compaction, the lead quoted a log entry word for word (*"COMPACT-PROBE: store every price as integer cents; zebra-42"*). It came from the dream that lucid re-injects after `/compact`, not from the summary.
+
+These runs uncovered three bugs, all fixed:
 - Leads invented worker ids, so lucid now stamps every agent's real id on its `lucid` commands.
 - One worker obeyed its stale brief over the plan change, so plan changes now state that they override the original brief.
+- A teammate edited through a Python heredoc in Bash, which skipped claims and the stop gate. File writes made through Bash are now checked too.
 
 ## 🧪 Honest limits
 
 - **More agents still means more tokens.** lucid cuts repeated exploration and re-explaining, not the cost of running each instance.
 - **Parallelism helps decoupled work.** Keep tightly coupled changes with a single agent; `/lucid:swarm` says so too.
-- **Agent Teams:** subagent hooks are verified. Whether plugin hooks fire inside in-process teammates isn't documented yet. If they don't, teammates can still use the CLI and skill by hand.
+- **Single agent across sessions:** Claude Code's built-in auto-memory already carries a policy into the next session, and the benchmark shows parity there. lucid earns its keep when **several agents work at once**.
+- **Bash write detection is a heuristic.** It catches redirects, `tee`, `cp`/`mv`/`rm`, `sed -i` and Python writes, but not every way a program can write a file.
 - **POSIX only** (macOS and Linux), because the log uses `flock` for locking.
 
 ## ⚙️ Configuration
