@@ -380,7 +380,14 @@ def hook(event):
         save_state(me, st)
         return emit(event, ctx)
     if event == "UserPromptSubmit":
-        return emit(event, delta(me, st))
+        ctx = delta(me, st)
+        _, claims, last = fold(entries(0)[0])
+        busy = sorted(o for o, gs in claims.items() if o != me and gs and alive(o, last))
+        if busy:  # e2e: leads relayed chat-only plan changes by message and skipped plan.md (1 of 3 recorded it)
+            ctx = (ctx + "\n" if ctx else "") + (
+                "[lucid] %s still working. If this message changes the plan, edit .lucid/plan.md first (or /lucid:replan): "
+                "they get the diff before their next tool call, and it survives /compact." % ", ".join(busy))
+        return emit(event, ctx)
     if event == "PreToolUse":
         why, extra = None, {}
         if tool == "Bash":

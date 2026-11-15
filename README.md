@@ -15,6 +15,7 @@
   <a href="https://code.claude.com/docs/en/plugins/overview"><img alt="Claude Code plugin" src="https://img.shields.io/badge/Claude%20Code-plugin-d97757?style=flat-square"></a>
   <img alt="Python 3.9+ stdlib" src="https://img.shields.io/badge/python-3.9%2B%20stdlib-3776ab?style=flat-square">
   <img alt="Zero dependencies" src="https://img.shields.io/badge/dependencies-0-2ea44f?style=flat-square">
+  <a href="https://github.com/Redskull-127/lucid/actions/workflows/test.yml"><img alt="CI" src="https://github.com/Redskull-127/lucid/actions/workflows/test.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-6ff3ff?style=flat-square"></a>
 </p>
 
@@ -109,6 +110,7 @@ Cells show runs passed and mean cost per run.
 **What it shows**
 - **Plan changes mid-build: 26/26 with lucid, 7/26 without, across both models.** Without lucid, Haiku missed every late change (0/8). Opus did better by re-checking the plan at the end (2/5), but still missed most changes. With lucid, the diff arrives before each worker's next tool call.
 - **Cheaper per working result.** lucid runs cost 2–26% more, because they do the extra work the change requires. Per *passing* run they cost about half as much on Haiku ($0.031 vs $0.061). On Opus they cost $1.01 vs $4.57 for early changes and $1.06 vs $2.35 for late ones.
+- **Plan changed by chatting with the lead: parity, 3/3 vs 3/3.** In live tmux sessions, a lead without lucid relayed the change to its workers or applied it itself. lucid's edge is for changes that don't pass through the lead's chat: you editing the plan, another agent, or another session. It also makes chat changes persist: when workers are active, lucid asks the lead to write the change into `plan.md`, where it survives `/compact`.
 - **One agent across sessions: parity.** Claude Code's built-in memory already carries the policy forward. lucid matches it; it doesn't beat it.
 - **Overhead when there's nothing to coordinate:** +$0.002 and +5 s per run on Haiku, and +$0.026 (+7%) and +6 s on Opus. That comes from the hooks and the injected context.
 - **It found a lucid bug.** The first memory run failed 1 of 4 because a finished session's file claim blocked the next session. Claims now release on `SessionEnd`, and the scenario was rerun.

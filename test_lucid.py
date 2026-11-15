@@ -137,6 +137,15 @@ last = pr.cli("log").stdout.strip().splitlines()[-1].split()[-1]
 pr.put(".lucid/digest.md", "<!-- lucid:upto=%s -->\nUse bcryptjs, not bcrypt.\n" % last)
 s = pr.cli("--as", main, "status").stdout
 assert "Use bcryptjs" in s and "bcrypt native" not in s, s
+# while workers hold claims, a user message reminds the lead to route plan changes through plan.md
+pn = Project()
+pn.hook("SessionStart")
+assert "still working" not in pn.ctx("UserPromptSubmit")
+pn.cli("--as", a, "claim", "x.py")
+assert a + " still working" in pn.ctx("UserPromptSubmit")
+pn.cli("--as", a, "release")
+assert "still working" not in pn.ctx("UserPromptSubmit")
+
 # a session that ends releases its claims, so the next session isn't blocked (found by the benchmark)
 assert pr.cli("--as", main, "claim", "tax.py").returncode == 0
 assert pr.edit({"session_id": "S2"}, "tax.py").get("permissionDecision") == "deny"
