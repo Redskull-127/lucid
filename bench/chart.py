@@ -25,6 +25,9 @@ SCENARIOS = (
     ("replan-late", "Plan changes late", "after both workers' main edits"),
     ("memory", "Policy in a new session", "single agent; parity check"),
     ("control", "Simple task", "nothing to coordinate: overhead"),
+    ("monorepo-early", "Monorepo: plan changes early", "private 12k-file TS monorepo"),
+    ("monorepo-late", "Monorepo: plan changes late", "private 12k-file TS monorepo"),
+    ("monorepo-control", "Monorepo: simple task", "private 12k-file TS monorepo"),
 )
 MODELS = (("haiku", "Haiku 5.5"), ("sonnet", "Sonnet 5.5"), ("opus", "Opus 5.5"))
 FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif"

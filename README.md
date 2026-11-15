@@ -75,17 +75,18 @@ The memory is wired in through hooks, so agents can't forget to check it. Agents
 
 ## 📊 Benchmark
 
-The same tasks run **with and without lucid**, on **Claude Haiku 5.5 and Claude Opus 5.5** through headless `claude -p`. Everything else is identical: the prompts, the tools, a fresh git repo per run, and project settings only (no personal plugins, hooks or CLAUDE.md). A hidden acceptance test the agents never see scores the final code. The 74 runs shown cost $23.01 in total.
+The same tasks run **with and without lucid**, on **Claude Haiku 5.5 and Claude Opus 5.5** through headless `claude -p`, in two codebases: a small demo repo and a **private 12k-file, ~950k-line TypeScript monorepo**. Everything else is identical: the prompts, the tools, a fresh checkout per run, and project settings only (no personal plugins, hooks or CLAUDE.md). A hidden acceptance test the agents never see scores the final code. The 120 runs shown cost $24.86 in total.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/bench-success-dark.svg">
-  <img alt="Task success with vs without lucid. Haiku: plan changes early 8/8 vs 4/8, late 8/8 vs 0/8, policy 4/4 vs 4/4, simple 4/4 vs 4/4. Opus: early 5/5 vs 1/5, late 5/5 vs 2/5, simple 3/3 vs 3/3" src="assets/bench-success-light.svg" width="100%">
+  <img alt="Task success with vs without lucid. Haiku: plan changes early 8/8 vs 4/8, late 8/8 vs 0/8, policy 4/4 vs 4/4, simple 4/4 vs 4/4. Opus: early 5/5 vs 1/5, late 5/5 vs 2/5, simple 3/3 vs 3/3. Private monorepo, Haiku: early 8/8 vs 2/8, late 10/10 vs 2/10, simple 5/5 vs 5/5" src="assets/bench-success-light.svg" width="100%">
 </picture>
 
 - **Plan changes early:** two workers run in parallel, and you edit `PLAN.md` at the first worker edit.
 - **Plan changes late:** the same, but the edit lands after both workers' main edits.
 - **Policy in a new session:** session 1 hears an unwritten policy, and a fresh session 2 must follow it.
 - **Simple task:** one agent, nothing to coordinate. This measures the overhead.
+- **Monorepo rows:** the same design in the private monorepo, with the two workers editing modules in two different packages. The repo isn't named and no code from it is published.
 
 | Scenario | Model | with lucid | without |
 |---|---|---|---|
@@ -96,6 +97,9 @@ The same tasks run **with and without lucid**, on **Claude Haiku 5.5 and Claude 
 | Policy in a new session | Haiku 5.5 | 4/4 · $0.024 | 4/4 · $0.022 |
 | Simple task | Haiku 5.5 | 4/4 · $0.011 | 4/4 · $0.009 |
 | | Opus 5.5 | 3/3 · $0.37 | 3/3 · $0.35 |
+| Monorepo: plan changes early | Haiku 5.5 | **8/8** · $0.045 | 2/8 · $0.043 |
+| Monorepo: plan changes late | Haiku 5.5 | **10/10** · $0.053 | 2/10 · $0.044 |
+| Monorepo: simple task | Haiku 5.5 | 5/5 · $0.019 | 5/5 · $0.017 |
 
 Cells show runs passed and mean cost per run.
 
@@ -110,11 +114,12 @@ Cells show runs passed and mean cost per run.
 </picture>
 
 **What it shows**
-- **Plan changes mid-build: 26/26 with lucid, 7/26 without, across both models.** Without lucid, Haiku missed every late change (0/8). Opus did better by re-checking the plan at the end (2/5), but still missed most changes. With lucid, the diff arrives before each worker's next tool call.
+- **Plan changes mid-build: 44/44 with lucid, 11/44 without, across both models and both codebases.** Without lucid, Haiku missed every late change in the demo repo (0/8). Opus did better by re-checking the plan at the end (2/5), but still missed most changes. With lucid, the diff arrives before each worker's next tool call.
+- **It holds in a large real codebase.** In the private 12k-file monorepo, workers without lucid missed the mid-task change in 14 of 18 runs, and with lucid all 18 passed. Each run cost 6% more for early changes and 20% more for late ones.
 - **Cheaper per working result.** lucid runs cost 2–26% more, mostly because they do the extra work the change requires (see *Why lucid runs cost a bit more* below). Per *passing* run they cost about half as much on Haiku ($0.031 vs $0.061). On Opus they cost $1.01 vs $4.57 for early changes and $1.06 vs $2.35 for late ones.
 - **Plan changed by chatting with the lead: parity, 3/3 vs 3/3.** In live tmux sessions, a lead without lucid relayed the change to its workers or applied it itself. lucid's edge is for changes that don't pass through the lead's chat: you editing the plan, another agent, or another session. It also makes chat changes persist: when workers are active, lucid asks the lead to write the change into `plan.md`, where it survives `/compact`.
 - **One agent across sessions: parity.** Claude Code's built-in memory already carries the policy forward. lucid matches it; it doesn't beat it.
-- **Overhead when there's nothing to coordinate:** +$0.002 and +5 s per run on Haiku, and +$0.026 (+7%) and +6 s on Opus. That comes from the hooks and the injected context.
+- **Overhead when there's nothing to coordinate:** +$0.002 and about +4–5 s per run on Haiku (+11–18%, in both codebases), and +$0.026 (+7%) and +6 s on Opus. Almost all of it is bookkeeping calls (see below).
 - **It found a lucid bug.** The first memory run failed 1 of 4 because a finished session's file claim blocked the next session. Claims now release on `SessionEnd`, and the scenario was rerun.
 
 <details>
@@ -129,6 +134,8 @@ Cells show runs passed and mean cost per run.
    | Haiku, plan changes early | $0.031 · 46 s | $0.035 · 54 s |
    | Opus, plan changes early | $1.006 · 49 s | $0.987 · 58 s |
    | Opus, plan changes late | $1.064 · 57 s | $1.044 · 74 s |
+   | Monorepo (Haiku), plan changes early | $0.045 · 49 s | $0.046 · 52 s |
+   | Monorepo (Haiku), plan changes late | $0.053 · 57 s | $0.048 · 58 s |
 
    When the baseline gets it right, it costs about the same and takes longer, because the lead discovers the change late and the work gets redone.
 2. **Bookkeeping calls.** Agents run short `lucid` commands to claim files and log decisions. That's about 9 per run with two workers, and about 5 even on the trivial single-agent task (10 tool calls vs 6). Each call is cheap but costs a model turn. On the simple task this is the whole overhead: +$0.002 on Haiku, +$0.026 on Opus, and +5–6 s.
@@ -157,7 +164,7 @@ Cells show runs passed and mean cost per run.
 
 </details>
 
-To reproduce, run `python3 bench/run.py --runs 8 -j 4` (Haiku, about $1.50), or add `--model opus --budget 30` (about $1 per run). Then run `python3 bench/chart.py`. Raw results are in [`bench/results.jsonl`](bench/results.jsonl). The samples are small (3–8 runs per arm) and cover one small codebase. To keep spend down, the Opus set skips the memory scenario. Treat this as a strong signal, not a paper.
+To reproduce, run `python3 bench/run.py --runs 8 -j 4` (Haiku, about $1.50), or add `--model opus --budget 30` (about $1 per run). Then run `python3 bench/chart.py`. Raw results are in [`bench/results.jsonl`](bench/results.jsonl). The monorepo rows came from a private harness that names files in that repo, so they can't be reproduced from here. Their raw rows are included, anonymized. The samples are small (3–10 runs per arm). The monorepo set ran on Haiku only, and to keep spend down the Opus set skips the memory scenario. Treat this as a strong signal, not a paper.
 
 ## 📦 Install
 

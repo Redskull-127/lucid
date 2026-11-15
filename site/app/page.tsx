@@ -163,25 +163,26 @@ export default function Home() {
             </h2>
             <div className="mt-8 grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-5 gap-y-1">
               <p className="contents">
-                <strong className="display text-[clamp(3.25rem,2.4rem+3vw,4.75rem)] leading-[1.05]">26/26</strong>
+                <strong className="display text-[clamp(3.25rem,2.4rem+3vw,4.75rem)] leading-[1.05]">44/44</strong>
                 <span className="text-muted">passed with lucid</span>
               </p>
               <p className="contents">
                 <strong className="display text-[clamp(3.25rem,2.4rem+3vw,4.75rem)] leading-[1.05] text-muted">
-                  7/26
+                  11/44
                 </strong>
                 <span className="text-muted">passed without</span>
               </p>
             </div>
-            <p className="mt-6 text-muted">Haiku 5.5 and Opus 5.5, scored by a hidden acceptance test.</p>
+            <p className="mt-6 text-muted">Haiku 5.5 and Opus 5.5, in a small repo and a 12k-file monorepo, scored by a hidden acceptance test.</p>
             <ul className="mt-8 space-y-3 border-t border-line pt-6 text-[0.975rem] text-muted">
               <li>
-                Late changes without lucid: Haiku missed <strong className="text-fg">8 of 8</strong>.
+                In a 12k-file monorepo, workers without lucid missed <strong className="text-fg">14 of 18</strong> plan
+                changes.
               </li>
               <li>
                 Per working run on Opus: <strong className="text-fg">$1.01 vs $4.57</strong>.
               </li>
-              <li>+2–7% overhead when there’s nothing to coordinate.</li>
+              <li>About +$0.002 (Haiku) to +$0.026 (Opus) per run when there’s nothing to coordinate.</li>
             </ul>
             <p className="mt-6 text-[0.975rem]">
               <Link href="/docs/benchmark" className="link">
@@ -194,7 +195,7 @@ export default function Home() {
             <ThemedFigure
               name="bench-success"
               width={760}
-              height={516}
+              height={678}
               alt="Task success with vs without lucid. Haiku: plan changes early 8/8 vs 4/8, late 8/8 vs 0/8, policy 4/4 vs 4/4, simple 4/4 vs 4/4. Opus: early 5/5 vs 1/5, late 5/5 vs 2/5, simple 3/3 vs 3/3"
             />
             <ThemedFigure

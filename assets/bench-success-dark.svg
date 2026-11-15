@@ -1,22 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="516" viewBox="0 0 760 516" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
-<title>Task success: hidden acceptance test passed</title><desc>Plan changes early (Haiku 5.5 · 8 runs per arm): with lucid 100%  (8/8), without 50%  (4/8); Plan changes early (Opus 5.5 · 5 runs per arm): with lucid 100%  (5/5), without 20%  (1/5); Plan changes late (Haiku 5.5 · 8 runs per arm): with lucid 100%  (8/8), without 0%  (0/8); Plan changes late (Opus 5.5 · 5 runs per arm): with lucid 100%  (5/5), without 40%  (2/5); Policy in a new session (Haiku 5.5 · 4 runs per arm): with lucid 100%  (4/4), without 100%  (4/4); Simple task (Haiku 5.5 · 4 runs per arm): with lucid 100%  (4/4), without 100%  (4/4); Simple task (Opus 5.5 · 3 runs per arm): with lucid 100%  (3/3), without 100%  (3/3)</desc>
-<rect width="760" height="516" rx="10" fill="#1a1a19"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="678" viewBox="0 0 760 678" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+<title>Task success: hidden acceptance test passed</title><desc>Plan changes early (Haiku 5.5 · 8 runs per arm): with lucid 100%  (8/8), without 50%  (4/8); Plan changes early (Opus 5.5 · 5 runs per arm): with lucid 100%  (5/5), without 20%  (1/5); Plan changes late (Haiku 5.5 · 8 runs per arm): with lucid 100%  (8/8), without 0%  (0/8); Plan changes late (Opus 5.5 · 5 runs per arm): with lucid 100%  (5/5), without 40%  (2/5); Policy in a new session (Haiku 5.5 · 4 runs per arm): with lucid 100%  (4/4), without 100%  (4/4); Simple task (Haiku 5.5 · 4 runs per arm): with lucid 100%  (4/4), without 100%  (4/4); Simple task (Opus 5.5 · 3 runs per arm): with lucid 100%  (3/3), without 100%  (3/3); Monorepo: plan changes early (Haiku 5.5 · 8 runs per arm): with lucid 100%  (8/8), without 25%  (2/8); Monorepo: plan changes late (Haiku 5.5 · 10 runs per arm): with lucid 100%  (10/10), without 20%  (2/10); Monorepo: simple task (Haiku 5.5 · 5 runs per arm): with lucid 100%  (5/5), without 100%  (5/5)</desc>
+<rect width="760" height="678" rx="10" fill="#1a1a19"/>
 <text x="24" y="34" font-size="16" font-weight="600" fill="#f0efec">Task success: hidden acceptance test passed</text>
 <text x="24" y="55" font-size="12" fill="#c3c2b7">Claude Code headless · identical prompts and tools; only the plugin differs</text>
 <rect x="24" y="70" width="10" height="10" rx="2" fill="#3987e5"/>
 <text x="40" y="79" font-size="12" fill="#c3c2b7">with lucid</text>
 <rect x="132" y="70" width="10" height="10" rx="2" fill="#d95926"/>
 <text x="148" y="79" font-size="12" fill="#c3c2b7">without</text>
-<line x1="236.0" y1="96" x2="236.0" y2="486" stroke="#2c2c2a" stroke-width="1"/>
-<text x="236.0" y="502" font-size="11" fill="#898781" text-anchor="middle">0%</text>
-<line x1="343.0" y1="96" x2="343.0" y2="486" stroke="#2c2c2a" stroke-width="1"/>
-<text x="343.0" y="502" font-size="11" fill="#898781" text-anchor="middle">25%</text>
-<line x1="450.0" y1="96" x2="450.0" y2="486" stroke="#2c2c2a" stroke-width="1"/>
-<text x="450.0" y="502" font-size="11" fill="#898781" text-anchor="middle">50%</text>
-<line x1="557.0" y1="96" x2="557.0" y2="486" stroke="#2c2c2a" stroke-width="1"/>
-<text x="557.0" y="502" font-size="11" fill="#898781" text-anchor="middle">75%</text>
-<line x1="664.0" y1="96" x2="664.0" y2="486" stroke="#2c2c2a" stroke-width="1"/>
-<text x="664.0" y="502" font-size="11" fill="#898781" text-anchor="middle">100%</text>
+<line x1="236.0" y1="96" x2="236.0" y2="648" stroke="#2c2c2a" stroke-width="1"/>
+<text x="236.0" y="664" font-size="11" fill="#898781" text-anchor="middle">0%</text>
+<line x1="343.0" y1="96" x2="343.0" y2="648" stroke="#2c2c2a" stroke-width="1"/>
+<text x="343.0" y="664" font-size="11" fill="#898781" text-anchor="middle">25%</text>
+<line x1="450.0" y1="96" x2="450.0" y2="648" stroke="#2c2c2a" stroke-width="1"/>
+<text x="450.0" y="664" font-size="11" fill="#898781" text-anchor="middle">50%</text>
+<line x1="557.0" y1="96" x2="557.0" y2="648" stroke="#2c2c2a" stroke-width="1"/>
+<text x="557.0" y="664" font-size="11" fill="#898781" text-anchor="middle">75%</text>
+<line x1="664.0" y1="96" x2="664.0" y2="648" stroke="#2c2c2a" stroke-width="1"/>
+<text x="664.0" y="664" font-size="11" fill="#898781" text-anchor="middle">100%</text>
 <text x="24" y="123" font-size="13" font-weight="500" fill="#f0efec">Plan changes early</text>
 <text x="24" y="139" font-size="11" fill="#898781">Haiku 5.5 · 8 runs per arm</text>
 <path d="M236.0 110.0H660.0Q664.0 110.0 664.0 114.0V120.0Q664.0 124.0 660.0 124.0H236.0Z" fill="#3987e5"/>
@@ -59,4 +59,22 @@
 <text x="670.0" y="445.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">100%  (3/3)</text>
 <path d="M236.0 450.0H660.0Q664.0 450.0 664.0 454.0V460.0Q664.0 464.0 660.0 464.0H236.0Z" fill="#d95926"/>
 <text x="670.0" y="461.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">100%  (3/3)</text>
+<text x="24" y="501" font-size="13" font-weight="500" fill="#f0efec">Monorepo: plan changes early</text>
+<text x="24" y="517" font-size="11" fill="#898781">Haiku 5.5 · 8 runs per arm</text>
+<path d="M236.0 488.0H660.0Q664.0 488.0 664.0 492.0V498.0Q664.0 502.0 660.0 502.0H236.0Z" fill="#3987e5"/>
+<text x="670.0" y="499.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">100%  (8/8)</text>
+<path d="M236.0 504.0H339.0Q343.0 504.0 343.0 508.0V514.0Q343.0 518.0 339.0 518.0H236.0Z" fill="#d95926"/>
+<text x="349.0" y="515.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">25%  (2/8)</text>
+<text x="24" y="555" font-size="13" font-weight="500" fill="#f0efec">Monorepo: plan changes late</text>
+<text x="24" y="571" font-size="11" fill="#898781">Haiku 5.5 · 10 runs per arm</text>
+<path d="M236.0 542.0H660.0Q664.0 542.0 664.0 546.0V552.0Q664.0 556.0 660.0 556.0H236.0Z" fill="#3987e5"/>
+<text x="670.0" y="553.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">100%  (10/10)</text>
+<path d="M236.0 558.0H317.6Q321.6 558.0 321.6 562.0V568.0Q321.6 572.0 317.6 572.0H236.0Z" fill="#d95926"/>
+<text x="327.6" y="569.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">20%  (2/10)</text>
+<text x="24" y="609" font-size="13" font-weight="500" fill="#f0efec">Monorepo: simple task</text>
+<text x="24" y="625" font-size="11" fill="#898781">Haiku 5.5 · 5 runs per arm</text>
+<path d="M236.0 596.0H660.0Q664.0 596.0 664.0 600.0V606.0Q664.0 610.0 660.0 610.0H236.0Z" fill="#3987e5"/>
+<text x="670.0" y="607.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">100%  (5/5)</text>
+<path d="M236.0 612.0H660.0Q664.0 612.0 664.0 616.0V622.0Q664.0 626.0 660.0 626.0H236.0Z" fill="#d95926"/>
+<text x="670.0" y="623.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">100%  (5/5)</text>
 </svg>

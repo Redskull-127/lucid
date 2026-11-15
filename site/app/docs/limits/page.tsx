@@ -132,7 +132,7 @@ export default function Limits() {
           <strong>POSIX only</strong> (macOS and Linux), because the log uses <code>flock</code> for locking.
         </li>
         <li>
-          <strong>The benchmark is small.</strong> 3–8 runs per arm on one small codebase: a strong signal, not a paper.
+          <strong>The benchmark is small.</strong> 3–10 runs per arm, across a small repo and one large private monorepo: a strong signal, not a paper.
         </li>
       </ul>
 
