@@ -1,0 +1,170 @@
+import { CodeBlock } from "@/components/code-block";
+import { Callout, DocHeader, H2, H3, Table, docMetadata } from "@/components/doc";
+import { ThemedFigure } from "@/components/themed-image";
+import { SITE } from "@/lib/site";
+
+export const metadata = docMetadata("/docs/benchmark");
+
+const b = (s: string) => <strong key={s}>{s}</strong>;
+
+export default function Benchmark() {
+  return (
+    <>
+      <DocHeader title="Benchmark">
+        The same tasks, run with and without lucid, on Claude Haiku 5.5 and Claude Opus 5.5. When the plan changed
+        mid-build, 26 of 26 runs passed with lucid and 7 of 26 without.
+      </DocHeader>
+
+      <H2 id="method">Methodology</H2>
+      <p>
+        Every run goes through headless <code>claude -p</code>. Everything else is identical between the two arms: the
+        prompts, the tools, a fresh git repo per run, and project settings only (no personal plugins, hooks or{" "}
+        <code>CLAUDE.md</code>). The lucid arm only adds the plugin and <code>lucid init</code>. A hidden acceptance test
+        the agents never see scores the final code. The 74 runs shown cost $23.01 in total.
+      </p>
+      <H3 id="scenarios">Scenarios</H3>
+      <ul>
+        <li>
+          <strong>Plan changes early:</strong> two workers run in parallel, and you edit <code>PLAN.md</code> at the
+          first worker edit.
+        </li>
+        <li>
+          <strong>Plan changes late:</strong> the same, but the edit lands after both workers’ main edits.
+        </li>
+        <li>
+          <strong>Policy in a new session:</strong> session 1 hears an unwritten policy, and a fresh session 2 must
+          follow it.
+        </li>
+        <li>
+          <strong>Simple task:</strong> one agent, nothing to coordinate. This measures the overhead.
+        </li>
+      </ul>
+
+      <H2 id="results">Results</H2>
+      <Table
+        head={["Scenario", "Model", "With lucid", "Without"]}
+        numeric={[2, 3]}
+        rows={[
+          ["Plan changes early", "Haiku 5.5", <>{b("8/8")} · $0.031</>, "4/8 · $0.030"],
+          ["", "Opus 5.5", <>{b("5/5")} · $1.01</>, "1/5 · $0.91"],
+          ["Plan changes late", "Haiku 5.5", <>{b("8/8")} · $0.033</>, <>{b("0/8")} · $0.026</>],
+          ["", "Opus 5.5", <>{b("5/5")} · $1.06</>, "2/5 · $0.94"],
+          ["Policy in a new session", "Haiku 5.5", "4/4 · $0.024", "4/4 · $0.022"],
+          ["Simple task", "Haiku 5.5", "4/4 · $0.011", "4/4 · $0.009"],
+          ["", "Opus 5.5", "3/3 · $0.37", "3/3 · $0.35"],
+        ]}
+      />
+      <p>Cells show runs passed and mean cost per run.</p>
+
+      <ThemedFigure
+        name="bench-success"
+        width={760}
+        height={516}
+        alt="Task success with vs without lucid. Haiku: plan changes early 8/8 vs 4/8, late 8/8 vs 0/8, policy 4/4 vs 4/4, simple 4/4 vs 4/4. Opus: early 5/5 vs 1/5, late 5/5 vs 2/5, simple 3/3 vs 3/3"
+      />
+
+      <H2 id="what-it-shows">What it shows</H2>
+      <ul>
+        <li>
+          <strong>Plan changes mid-build: 26/26 with lucid, 7/26 without, across both models.</strong> Without lucid,
+          Haiku missed every late change (0/8). Opus did better by re-checking the plan at the end (2/5), but still
+          missed most changes. With lucid, the diff arrives before each worker’s next tool call.
+        </li>
+        <li>
+          <strong>Cheaper per working result.</strong> lucid runs cost 2–26% more, because they do the extra work the
+          change requires. Per <em>passing</em> run they cost about half as much on Haiku ($0.031 vs $0.061). On Opus
+          they cost $1.01 vs $4.57 for early changes and $1.06 vs $2.35 for late ones.
+        </li>
+        <li>
+          <strong>Plan changed by chatting with the lead: parity, 3/3 vs 3/3.</strong> In live tmux sessions, a lead
+          without lucid relayed the change to its workers or applied it itself. lucid’s edge is for changes that don’t
+          pass through the lead’s chat: you editing the plan, another agent, or another session. It also makes chat
+          changes persist: when workers are active, lucid asks the lead to write the change into{" "}
+          <code>plan.md</code>, and leads then did so 3/3 times (1/3 before), so the change survives{" "}
+          <code>/compact</code>.
+        </li>
+        <li>
+          <strong>One agent across sessions: parity.</strong> Claude Code’s built-in memory already carries the policy
+          forward. lucid matches it; it doesn’t beat it.
+        </li>
+        <li>
+          <strong>Overhead when there’s nothing to coordinate:</strong> +$0.002 and +5 s per run on Haiku, and +$0.026
+          (+7%) and +6 s on Opus. That comes from the hooks and the injected context.
+        </li>
+        <li>
+          <strong>It found a lucid bug.</strong> The first memory run failed 1 of 4 because a finished session’s file
+          claim blocked the next session. Claims now release on <code>SessionEnd</code>, and the scenario was rerun.
+        </li>
+      </ul>
+
+      <H2 id="cost-per-pass">Cost per passing run</H2>
+      <p>Total spend divided by the runs that worked. Lower is better.</p>
+      <ThemedFigure
+        name="bench-costpass-opus"
+        width={760}
+        height={300}
+        alt="Opus 5.5 cost per passing run: plan changes early $1.01 vs $4.57, late $1.06 vs $2.35, simple task $0.37 vs $0.35"
+      />
+      <ThemedFigure
+        name="bench-costpass-haiku"
+        width={760}
+        height={354}
+        alt="Haiku 5.5 cost per passing run: plan changes early $0.031 vs $0.061, late $0.033 vs no run passed, policy $0.024 vs $0.022, simple task $0.011 vs $0.009"
+      />
+
+      <H2 id="raw">Raw cost and time per run</H2>
+      <p>Mean per run, with the min–max range, for each model.</p>
+      <ThemedFigure
+        name="bench-cost-opus"
+        width={760}
+        height={300}
+        alt="Opus 5.5 mean cost per run with min-max range, with vs without lucid"
+      />
+      <ThemedFigure
+        name="bench-time-opus"
+        width={760}
+        height={300}
+        alt="Opus 5.5 mean wall-clock seconds per run with min-max range, with vs without lucid"
+      />
+      <ThemedFigure
+        name="bench-cost-haiku"
+        width={760}
+        height={354}
+        alt="Haiku 5.5 mean cost per run with min-max range, with vs without lucid"
+      />
+      <ThemedFigure
+        name="bench-time-haiku"
+        width={760}
+        height={354}
+        alt="Haiku 5.5 mean wall-clock seconds per run with min-max range, with vs without lucid"
+      />
+
+      <H2 id="reproduce">Reproduce it</H2>
+      <p>From a checkout of the repo, run the Haiku set (about $1.50):</p>
+      <CodeBlock label="In your terminal" what="Haiku benchmark command" code={`python3 bench/run.py --runs 8 -j 4`} />
+      <p>Or the Opus set, at about $1 per run:</p>
+      <CodeBlock
+        label="In your terminal"
+        what="Opus benchmark command"
+        code={`python3 bench/run.py --runs 8 -j 4 --model opus --budget 30`}
+      />
+      <p>Then render the charts:</p>
+      <CodeBlock label="In your terminal" what="chart command" code={`python3 bench/chart.py`} />
+      <p>
+        Raw results are in{" "}
+        <a href={`${SITE.github}/blob/main/bench/results.jsonl`}>
+          <code>bench/results.jsonl</code>
+        </a>
+        .
+      </p>
+
+      <H2 id="caveats">Caveats</H2>
+      <Callout>
+        <p>
+          The samples are small (3–8 runs per arm) and cover one small codebase. To keep spend down, the Opus set skips
+          the memory scenario. Treat this as a strong signal, not a paper.
+        </p>
+      </Callout>
+    </>
+  );
+}

@@ -1,7 +1,7 @@
 {
   "name": "lucid",
   "displayName": "Lucid",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "One shared dream for every Claude agent: a live plan, an evidence-backed decision/dead-end log and file claims that the lead, subagents and Agent-Teams teammates all see, with plan changes streamed to running workers before their next tool call.",
   "author": {
     "name": "Meer Tarbani",

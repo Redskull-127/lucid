@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="354" viewBox="0 0 760 354" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+<title>Cost per passing run (USD), Haiku 5.5: total spend ÷ runs that worked</title><desc>Plan changes early (while both workers are mid-task): with lucid $0.031, without $0.061; Plan changes late (after both workers' main edits): with lucid $0.033, without no run passed; Policy in a new session (single agent; parity check): with lucid $0.024, without $0.022; Simple task (nothing to coordinate: overhead): with lucid $0.011, without $0.009</desc>
+<rect width="760" height="354" rx="10" fill="#151036"/>
+<text x="24" y="34" font-size="16" font-weight="600" fill="#f0efec">Cost per passing run (USD), Haiku 5.5: total spend ÷ runs that worked</text>
+<text x="24" y="55" font-size="12" fill="#c3c2b7">Haiku 5.5 · 4–8 runs per arm · lower is better</text>
+<rect x="24" y="70" width="10" height="10" rx="2" fill="#3987e5"/>
+<text x="40" y="79" font-size="12" fill="#c3c2b7">with lucid</text>
+<rect x="132" y="70" width="10" height="10" rx="2" fill="#d95926"/>
+<text x="148" y="79" font-size="12" fill="#c3c2b7">without</text>
+<line x1="236.0" y1="96" x2="236.0" y2="324" stroke="#2a2358" stroke-width="1"/>
+<text x="236.0" y="340" font-size="11" fill="#898781" text-anchor="middle">$0.00</text>
+<line x1="343.0" y1="96" x2="343.0" y2="324" stroke="#2a2358" stroke-width="1"/>
+<text x="343.0" y="340" font-size="11" fill="#898781" text-anchor="middle">$0.02</text>
+<line x1="450.0" y1="96" x2="450.0" y2="324" stroke="#2a2358" stroke-width="1"/>
+<text x="450.0" y="340" font-size="11" fill="#898781" text-anchor="middle">$0.04</text>
+<line x1="557.0" y1="96" x2="557.0" y2="324" stroke="#2a2358" stroke-width="1"/>
+<text x="557.0" y="340" font-size="11" fill="#898781" text-anchor="middle">$0.06</text>
+<line x1="664.0" y1="96" x2="664.0" y2="324" stroke="#2a2358" stroke-width="1"/>
+<text x="664.0" y="340" font-size="11" fill="#898781" text-anchor="middle">$0.08</text>
+<text x="24" y="123" font-size="13" font-weight="500" fill="#f0efec">Plan changes early</text>
+<text x="24" y="139" font-size="11" fill="#898781">while both workers are mid-task</text>
+<path d="M236.0 110.0H397.6Q401.6 110.0 401.6 114.0V120.0Q401.6 124.0 397.6 124.0H236.0Z" fill="#3987e5"/>
+<text x="407.6" y="121.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$0.031</text>
+<path d="M236.0 126.0H556.3Q560.3 126.0 560.3 130.0V136.0Q560.3 140.0 556.3 140.0H236.0Z" fill="#d95926"/>
+<text x="566.3" y="137.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$0.061</text>
+<text x="24" y="177" font-size="13" font-weight="500" fill="#f0efec">Plan changes late</text>
+<text x="24" y="193" font-size="11" fill="#898781">after both workers' main edits</text>
+<path d="M236.0 164.0H408.4Q412.4 164.0 412.4 168.0V174.0Q412.4 178.0 408.4 178.0H236.0Z" fill="#3987e5"/>
+<text x="418.4" y="175.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$0.033</text>
+
+<text x="242.0" y="191.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">no run passed</text>
+<text x="24" y="231" font-size="13" font-weight="500" fill="#f0efec">Policy in a new session</text>
+<text x="24" y="247" font-size="11" fill="#898781">single agent; parity check</text>
+<path d="M236.0 218.0H361.4Q365.4 218.0 365.4 222.0V228.0Q365.4 232.0 361.4 232.0H236.0Z" fill="#3987e5"/>
+<text x="371.4" y="229.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$0.024</text>
+<path d="M236.0 234.0H347.5Q351.5 234.0 351.5 238.0V244.0Q351.5 248.0 347.5 248.0H236.0Z" fill="#d95926"/>
+<text x="357.5" y="245.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$0.022</text>
+<text x="24" y="285" font-size="13" font-weight="500" fill="#f0efec">Simple task</text>
+<text x="24" y="301" font-size="11" fill="#898781">nothing to coordinate: overhead</text>
+<path d="M236.0 272.0H291.5Q295.5 272.0 295.5 276.0V282.0Q295.5 286.0 291.5 286.0H236.0Z" fill="#3987e5"/>
+<text x="301.5" y="283.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$0.011</text>
+<path d="M236.0 288.0H282.3Q286.3 288.0 286.3 292.0V298.0Q286.3 302.0 282.3 302.0H236.0Z" fill="#d95926"/>
+<text x="292.3" y="299.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$0.009</text>
+</svg>

@@ -89,6 +89,17 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/guard.sh\" Stop",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }

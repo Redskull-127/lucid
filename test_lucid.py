@@ -151,6 +151,11 @@ assert pr.cli("--as", main, "claim", "tax.py").returncode == 0
 assert pr.edit({"session_id": "S2"}, "tax.py").get("permissionDecision") == "deny"
 pr.hook("SessionEnd")
 assert "permissionDecision" not in pr.edit({"session_id": "S2"}, "tax.py")
+# ...and so does a session whose turn ended (split-pane teammates are separate sessions that go idle)
+assert pr.cli("--as", main, "claim", "tax.py").returncode == 0
+assert pr.edit({"session_id": "S2"}, "tax.py").get("permissionDecision") == "deny"
+pr.hook("Stop")
+assert "permissionDecision" not in pr.edit({"session_id": "S2"}, "tax.py")
 print("core behaviour ok")
 
 # ======================= edge cases =======================

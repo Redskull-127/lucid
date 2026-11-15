@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="300" viewBox="0 0 760 300" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+<title>Wall-clock time per run (seconds), Opus 5.5</title><desc>Plan changes early (while both workers are mid-task): with lucid 49 s, without 48 s; Plan changes late (after both workers' main edits): with lucid 57 s, without 54 s; Simple task (nothing to coordinate: overhead): with lucid 22 s, without 16 s</desc>
+<rect width="760" height="300" rx="10" fill="#ffffff"/>
+<text x="24" y="34" font-size="16" font-weight="600" fill="#0b0b0b">Wall-clock time per run (seconds), Opus 5.5</text>
+<text x="24" y="55" font-size="12" fill="#52514e">Opus 5.5 · 3–5 runs per arm · bar = mean, whisker = min–max</text>
+<rect x="24" y="70" width="10" height="10" rx="2" fill="#2a78d6"/>
+<text x="40" y="79" font-size="12" fill="#52514e">with lucid</text>
+<rect x="132" y="70" width="10" height="10" rx="2" fill="#eb6834"/>
+<text x="148" y="79" font-size="12" fill="#52514e">without</text>
+<line x1="236.0" y1="96" x2="236.0" y2="270" stroke="#e1e0d9" stroke-width="1"/>
+<text x="236.0" y="286" font-size="11" fill="#898781" text-anchor="middle">0</text>
+<line x1="343.0" y1="96" x2="343.0" y2="270" stroke="#e1e0d9" stroke-width="1"/>
+<text x="343.0" y="286" font-size="11" fill="#898781" text-anchor="middle">20</text>
+<line x1="450.0" y1="96" x2="450.0" y2="270" stroke="#e1e0d9" stroke-width="1"/>
+<text x="450.0" y="286" font-size="11" fill="#898781" text-anchor="middle">40</text>
+<line x1="557.0" y1="96" x2="557.0" y2="270" stroke="#e1e0d9" stroke-width="1"/>
+<text x="557.0" y="286" font-size="11" fill="#898781" text-anchor="middle">60</text>
+<line x1="664.0" y1="96" x2="664.0" y2="270" stroke="#e1e0d9" stroke-width="1"/>
+<text x="664.0" y="286" font-size="11" fill="#898781" text-anchor="middle">80</text>
+<text x="24" y="123" font-size="13" font-weight="500" fill="#0b0b0b">Plan changes early</text>
+<text x="24" y="139" font-size="11" fill="#898781">while both workers are mid-task</text>
+<path d="M236.0 110.0H493.4Q497.4 110.0 497.4 114.0V120.0Q497.4 124.0 493.4 124.0H236.0Z" fill="#2a78d6"/>
+<path d="M478.5 117.0H512.8M478.5 113.0v8M512.8 113.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="518.8" y="121.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">49 s</text>
+<path d="M236.0 126.0H488.0Q492.0 126.0 492.0 130.0V136.0Q492.0 140.0 488.0 140.0H236.0Z" fill="#eb6834"/>
+<path d="M461.6 133.0H547.9M461.6 129.0v8M547.9 129.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="553.9" y="137.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">48 s</text>
+<text x="24" y="177" font-size="13" font-weight="500" fill="#0b0b0b">Plan changes late</text>
+<text x="24" y="193" font-size="11" fill="#898781">after both workers' main edits</text>
+<path d="M236.0 164.0H537.1Q541.1 164.0 541.1 168.0V174.0Q541.1 178.0 537.1 178.0H236.0Z" fill="#2a78d6"/>
+<path d="M496.3 171.0H587.4M496.3 167.0v8M587.4 167.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="593.4" y="175.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">57 s</text>
+<path d="M236.0 180.0H518.2Q522.2 180.0 522.2 184.0V190.0Q522.2 194.0 518.2 194.0H236.0Z" fill="#eb6834"/>
+<path d="M436.0 187.0H641.8M436.0 183.0v8M641.8 183.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="647.8" y="191.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">54 s</text>
+<text x="24" y="231" font-size="13" font-weight="500" fill="#0b0b0b">Simple task</text>
+<text x="24" y="247" font-size="11" fill="#898781">nothing to coordinate: overhead</text>
+<path d="M236.0 218.0H349.9Q353.9 218.0 353.9 222.0V228.0Q353.9 232.0 349.9 232.0H236.0Z" fill="#2a78d6"/>
+<path d="M341.9 225.0H374.2M341.9 221.0v8M374.2 221.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="380.2" y="229.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">22 s</text>
+<path d="M236.0 234.0H318.5Q322.5 234.0 322.5 238.0V244.0Q322.5 248.0 318.5 248.0H236.0Z" fill="#eb6834"/>
+<path d="M319.9 241.0H325.5M319.9 237.0v8M325.5 237.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="331.5" y="245.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">16 s</text>
+</svg>

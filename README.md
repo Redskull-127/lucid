@@ -68,6 +68,8 @@ The memory is wired in through hooks, so agents can't forget to check it. Agents
 | **PreToolUse** on edits | 🔒 Blocks a write to a file another active agent has claimed, whether it goes through Edit/Write or through Bash (`>`, `sed -i`, `cp`/`mv`, scripts that `open(…, 'w')`). |
 | **PreToolUse** on Bash | Adds the calling agent's real id to every `lucid` command, so every entry records who wrote it and agents never have to manage ids. |
 | **SubagentStop** · **TaskCompleted** | Asks once for notes from an agent that edited files but logged nothing. A stopping subagent's claims are released. |
+| **Stop** · **SessionEnd** | Releases a session's claims when its turn or the session ends, so an idle agent never blocks others. |
+| **UserPromptSubmit** while workers are busy | Reminds the lead to write a chat change of plan into `plan.md` first, so running workers get it and it survives `/compact`. |
 
 > lucid stays **inactive** until a project opts in with `lucid init`. In every other project a tiny shell guard checks for `.lucid/` and exits without starting Python. It works from repo subfolders and git worktrees, which share the main checkout's dream.
 
@@ -149,11 +151,7 @@ To reproduce, run `python3 bench/run.py --runs 8 -j 4` (Haiku, about $1.50), or 
 /plugin install lucid@lucid
 ```
 
-Then, in your project:
-
-```bash
-lucid init        # creates .lucid/ ; write your plan in .lucid/plan.md
-```
+Then turn it on per project. Ask Claude to run `lucid init` (the plugin puts `lucid` on Claude's PATH), or just start with `/lucid:swarm`, which does it for you. Write your plan in `.lucid/plan.md`.
 
 <details>
 <summary>Develop or try a local checkout</summary>
@@ -204,7 +202,7 @@ The worker added `multiply()`. In the same run, it logged a note before it had f
 
 **Two workers in parallel.** `/lucid:swarm` split a task into `shop/pricing.py` and `shop/cart.py`, one worker each. The moment the cart worker claimed its file, a human added a requirement spanning both files: *"`Cart.total()` must apply `discount()` over 100"*. The cart worker got the diff mid-task, applied it itself, and logged the decision. Both claims were released automatically. A hidden acceptance test the agents never saw passed 4/4.
 
-**Agent Teams, live in tmux.** With `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, the lead picked `/lucid:swarm` on its own and spawned `@pricing-worker` and `@cart-worker` as in-process teammates. lucid's hooks fired inside both teammates: start, every tool call, plan edits and stop, each under the teammate's own id. Both claimed, worked, logged and were auto-released.
+**Agent Teams, live in tmux.** With `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, the lead picked `/lucid:swarm` on its own and spawned `@pricing-worker` and `@cart-worker` as in-process teammates. lucid's hooks fired inside both teammates: start, every tool call, plan edits and stop, each under the teammate's own id. Both claimed, worked, logged and were auto-released. In split-pane mode, where each teammate is a separate `claude` process, lucid loads too. There, teammates appear under their session id, and their claims release when their turn ends.
 
 **Real `/compact`.** After a compaction, the lead quoted a log entry word for word (*"COMPACT-PROBE: store every price as integer cents; zebra-42"*). It came from the dream that lucid re-injects after `/compact`, not from the summary.
 

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="344" viewBox="0 0 880 344" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+<title>How lucid works</title>
+<desc>You edit the plan. The .lucid folder holds plan.md and log.jsonl. Hooks inject the full digest into every agent at start
+and only what changed before each tool call. Agents write back with lucid note and lucid claim.</desc>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+<path d="M0 0L10 5L0 10z" fill="#52514e"/></marker>
+<marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+<path d="M0 0L10 5L0 10z" fill="#2a78d6"/></marker></defs>
+<rect width="880" height="344" rx="12" fill="#ffffff"/>
+
+<rect x="24" y="72" width="132" height="44" rx="22" fill="#ffffff" stroke="#d6d5ce"/>
+<text x="90" y="99" font-size="14" font-weight="600" fill="#0b0b0b" text-anchor="middle">You</text>
+<path d="M156 94H274" stroke="#52514e" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+<text x="215" y="84" font-size="11" fill="#52514e" text-anchor="middle">edit the plan</text>
+<text x="215" y="112" font-size="11" fill="#898781" text-anchor="middle">/lucid:replan</text>
+
+<rect x="276" y="20" width="300" height="304" rx="12" fill="#eef4fc" stroke="#86b6ef"/>
+<text x="296" y="46" font-size="13" font-weight="600" fill="#0b0b0b">.lucid/</text>
+<text x="347" y="46" font-size="12" fill="#52514e">the shared dream</text>
+<rect x="296" y="62" width="260" height="64" rx="8" fill="#ffffff" stroke="#d6d5ce"/>
+<text x="312" y="87" font-size="14" font-weight="600" fill="#0b0b0b">plan.md</text>
+<text x="312" y="108" font-size="11.5" fill="#52514e">the live plan; every edit becomes a diff</text>
+<rect x="296" y="142" width="260" height="164" rx="8" fill="#ffffff" stroke="#d6d5ce"/>
+<text x="312" y="167" font-size="14" font-weight="600" fill="#0b0b0b">log.jsonl</text>
+<text x="312" y="189" font-size="11.5" fill="#898781">append-only, shared by every agent</text>
+<g font-size="12" fill="#52514e">
+<text x="312" y="215">· decisions, with the why</text>
+<text x="312" y="237">· facts, with path:line evidence</text>
+<text x="312" y="259">· dead ends, so nobody retries</text>
+<text x="312" y="281">· blockers and file claims</text>
+</g>
+
+<g font-size="13.5" font-weight="600" fill="#0b0b0b" text-anchor="middle">
+<rect x="716" y="62" width="140" height="44" rx="8" fill="#ffffff" stroke="#d6d5ce"/><text x="786" y="89">Lead agent</text>
+<rect x="716" y="122" width="140" height="44" rx="8" fill="#ffffff" stroke="#d6d5ce"/><text x="786" y="149">Subagents</text>
+<rect x="716" y="182" width="140" height="44" rx="8" fill="#ffffff" stroke="#d6d5ce"/><text x="786" y="209">Teammates</text>
+</g>
+<g stroke="#2a78d6" stroke-width="2" fill="none">
+<path d="M576 84H714" marker-end="url(#b)"/><path d="M576 144H714" marker-end="url(#b)"/><path d="M576 204H714" marker-end="url(#b)"/>
+</g>
+<g font-size="11" fill="#52514e" text-anchor="middle">
+<text x="645" y="60">on start: everything</text>
+<text x="645" y="75">then: only what's new</text>
+</g>
+<path d="M748 226V284H560" stroke="#52514e" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+<text x="654" y="304" font-size="11" fill="#52514e" text-anchor="middle">lucid note · lucid claim</text>
+<text x="806" y="250" font-size="11" fill="#898781" text-anchor="middle">claimed files are</text>
+<text x="806" y="264" font-size="11" fill="#898781" text-anchor="middle">locked for others</text>
+</svg>

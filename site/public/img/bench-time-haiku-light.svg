@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="354" viewBox="0 0 760 354" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+<title>Wall-clock time per run (seconds), Haiku 5.5</title><desc>Plan changes early (while both workers are mid-task): with lucid 46 s, without 41 s; Plan changes late (after both workers' main edits): with lucid 47 s, without 34 s; Policy in a new session (single agent; parity check): with lucid 49 s, without 43 s; Simple task (nothing to coordinate: overhead): with lucid 19 s, without 14 s</desc>
+<rect width="760" height="354" rx="10" fill="#ffffff"/>
+<text x="24" y="34" font-size="16" font-weight="600" fill="#0b0b0b">Wall-clock time per run (seconds), Haiku 5.5</text>
+<text x="24" y="55" font-size="12" fill="#52514e">Haiku 5.5 · 4–8 runs per arm · bar = mean, whisker = min–max</text>
+<rect x="24" y="70" width="10" height="10" rx="2" fill="#2a78d6"/>
+<text x="40" y="79" font-size="12" fill="#52514e">with lucid</text>
+<rect x="132" y="70" width="10" height="10" rx="2" fill="#eb6834"/>
+<text x="148" y="79" font-size="12" fill="#52514e">without</text>
+<line x1="236.0" y1="96" x2="236.0" y2="324" stroke="#e1e0d9" stroke-width="1"/>
+<text x="236.0" y="340" font-size="11" fill="#898781" text-anchor="middle">0</text>
+<line x1="343.0" y1="96" x2="343.0" y2="324" stroke="#e1e0d9" stroke-width="1"/>
+<text x="343.0" y="340" font-size="11" fill="#898781" text-anchor="middle">20</text>
+<line x1="450.0" y1="96" x2="450.0" y2="324" stroke="#e1e0d9" stroke-width="1"/>
+<text x="450.0" y="340" font-size="11" fill="#898781" text-anchor="middle">40</text>
+<line x1="557.0" y1="96" x2="557.0" y2="324" stroke="#e1e0d9" stroke-width="1"/>
+<text x="557.0" y="340" font-size="11" fill="#898781" text-anchor="middle">60</text>
+<line x1="664.0" y1="96" x2="664.0" y2="324" stroke="#e1e0d9" stroke-width="1"/>
+<text x="664.0" y="340" font-size="11" fill="#898781" text-anchor="middle">80</text>
+<text x="24" y="123" font-size="13" font-weight="500" fill="#0b0b0b">Plan changes early</text>
+<text x="24" y="139" font-size="11" fill="#898781">while both workers are mid-task</text>
+<path d="M236.0 110.0H480.4Q484.4 110.0 484.4 114.0V120.0Q484.4 124.0 480.4 124.0H236.0Z" fill="#2a78d6"/>
+<path d="M434.7 117.0H608.4M434.7 113.0v8M608.4 113.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="614.4" y="121.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">46 s</text>
+<path d="M236.0 126.0H448.9Q452.9 126.0 452.9 130.0V136.0Q452.9 140.0 448.9 140.0H236.0Z" fill="#eb6834"/>
+<path d="M367.6 133.0H572.9M367.6 129.0v8M572.9 129.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="578.9" y="137.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">41 s</text>
+<text x="24" y="177" font-size="13" font-weight="500" fill="#0b0b0b">Plan changes late</text>
+<text x="24" y="193" font-size="11" fill="#898781">after both workers' main edits</text>
+<path d="M236.0 164.0H484.6Q488.6 164.0 488.6 168.0V174.0Q488.6 178.0 484.6 178.0H236.0Z" fill="#2a78d6"/>
+<path d="M421.2 171.0H522.7M421.2 167.0v8M522.7 167.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="528.7" y="175.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">47 s</text>
+<path d="M236.0 180.0H412.1Q416.1 180.0 416.1 184.0V190.0Q416.1 194.0 412.1 194.0H236.0Z" fill="#eb6834"/>
+<path d="M361.1 187.0H490.7M361.1 183.0v8M490.7 183.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="496.7" y="191.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">34 s</text>
+<text x="24" y="231" font-size="13" font-weight="500" fill="#0b0b0b">Policy in a new session</text>
+<text x="24" y="247" font-size="11" fill="#898781">single agent; parity check</text>
+<path d="M236.0 218.0H494.5Q498.5 218.0 498.5 222.0V228.0Q498.5 232.0 494.5 232.0H236.0Z" fill="#2a78d6"/>
+<path d="M490.2 225.0H512.6M490.2 221.0v8M512.6 221.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="518.6" y="229.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">49 s</text>
+<path d="M236.0 234.0H461.8Q465.8 234.0 465.8 238.0V244.0Q465.8 248.0 461.8 248.0H236.0Z" fill="#eb6834"/>
+<path d="M433.5 241.0H516.9M433.5 237.0v8M516.9 237.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="522.9" y="245.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">43 s</text>
+<text x="24" y="285" font-size="13" font-weight="500" fill="#0b0b0b">Simple task</text>
+<text x="24" y="301" font-size="11" fill="#898781">nothing to coordinate: overhead</text>
+<path d="M236.0 272.0H332.5Q336.5 272.0 336.5 276.0V282.0Q336.5 286.0 332.5 286.0H236.0Z" fill="#2a78d6"/>
+<path d="M313.8 279.0H367.9M313.8 275.0v8M367.9 275.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="373.9" y="283.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">19 s</text>
+<path d="M236.0 288.0H309.2Q313.2 288.0 313.2 292.0V298.0Q313.2 302.0 309.2 302.0H236.0Z" fill="#eb6834"/>
+<path d="M292.2 295.0H338.1M292.2 291.0v8M338.1 291.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="344.1" y="299.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">14 s</text>
+</svg>
