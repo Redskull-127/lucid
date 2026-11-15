@@ -1,0 +1,417 @@
+#!/usr/bin/env python3
+"""lucid: one shared dream for every Claude agent working on a project.
+
+The dream lives in .lucid/: plan.md (the live plan) and log.jsonl (append-only:
+decisions, facts, dead ends, blockers, file claims, plan diffs). Hooks inject it
+into every session and subagent, and stream other agents' changes in before each
+tool call, so nobody works from a stale plan or a lossy summary.
+
+  lucid [--as ID] init | note KIND TEXT [-e path:line ...] | claim GLOB... [--for TASK]
+                  | release [GLOB...] | supersede ID... [--why W] | log [--since ID] | status
+  lucid hook EVENT     (hook JSON on stdin; wired in hooks/hooks.json)
+"""
+import argparse
+import difflib
+import fcntl  # ponytail: POSIX only; Windows would need msvcrt.locking
+import fnmatch
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from contextlib import contextmanager
+
+KINDS = ("decision", "fact", "failed", "blocker")
+EDIT_TOOLS = ("Edit", "Write", "MultiEdit", "NotebookEdit")
+TTL = int(os.environ.get("LUCID_CLAIM_TTL", "1200"))  # a claim lapses after 20 min of owner silence
+CAP_DIGEST, CAP_DELTA = 6000, 2500  # ponytail: fixed char budgets, make configurable if they bite
+PLAN_TEMPLATE = "# Plan\n\n## Goal\n\n## Tasks (one owner per file set)\n- [ ] \n\n## Constraints / non-goals\n"
+ROOT = D = ""
+
+
+# ---------- paths & small io ----------
+
+def setup(start):
+    global ROOT, D
+    ROOT = os.environ.get("LUCID_ROOT") or os.environ.get("CLAUDE_PROJECT_DIR") or find_root(start)
+    D = os.path.join(ROOT, ".lucid")
+
+
+def find_root(start):
+    d = os.path.abspath(start)
+    while True:
+        if os.path.isdir(os.path.join(d, ".lucid")):
+            return d
+        if os.path.dirname(d) == d:
+            break
+        d = os.path.dirname(d)
+    try:  # in a git worktree: share the main checkout's dream
+        out = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                             cwd=start, capture_output=True, text=True, timeout=3).stdout.strip()
+        if out:
+            return os.path.dirname(out)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return os.path.abspath(start)
+
+
+def p(name):
+    return os.path.join(D, name)
+
+
+def read(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    except OSError:
+        return ""
+
+
+def write(path, text):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text)
+
+
+def fhash(path):
+    try:
+        with open(path, "rb") as f:
+            return hashlib.sha1(f.read()).hexdigest()[:12]
+    except OSError:
+        return None
+
+
+def rel(path):
+    return os.path.relpath(os.path.abspath(path), ROOT)
+
+
+def who(inp):
+    """Stable id per agent: subagents/teammates by agent_id, the main agent by session."""
+    if inp.get("agent_id"):
+        return "ag-" + hashlib.sha1(inp["agent_id"].encode()).hexdigest()[:6]
+    return "main-" + hashlib.sha1(inp.get("session_id", "").encode()).hexdigest()[:4]
+
+
+def load_state(me):
+    try:
+        return json.loads(read(p(".state/%s.json" % me)) or "{}")
+    except ValueError:
+        return {}
+
+
+def save_state(me, st):  # also the agent's heartbeat (mtime) for claim liveness
+    write(p(".state/%s.json" % me), json.dumps(st))
+
+
+def clip(s, n, more="… (truncated)"):
+    return s if len(s) <= n else s[:n] + "\n" + more
+
+
+# ---------- the log ----------
+
+@contextmanager
+def locked():
+    os.makedirs(D, exist_ok=True)
+    with open(p("log.jsonl"), "a+", encoding="utf-8") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        yield f
+
+
+def put(f, entry):
+    f.seek(0)
+    e = dict(id=sum(1 for _ in f) + 1, ts=int(time.time()), **entry)  # ponytail: O(n) ids, fine to ~100k entries
+    f.write(json.dumps(e, ensure_ascii=False) + "\n")  # a+ always appends
+    f.flush()
+    return e
+
+
+def append(**entry):
+    with locked() as f:
+        return put(f, entry)
+
+
+def entries(start=0):
+    """Complete entries from byte offset `start` -> (entries, new_offset)."""
+    try:
+        with open(p("log.jsonl"), "rb") as f:
+            f.seek(start)
+            data = f.read()
+    except OSError:
+        return [], start
+    end = data.rfind(b"\n") + 1  # skip a half-written last line; readers don't lock
+    out = []
+    for line in data[:end].splitlines():
+        try:
+            out.append(json.loads(line))
+        except ValueError:
+            pass
+    return out, start + end
+
+
+def sync_plan(author):
+    """Turn any change to plan.md into a logged diff, whoever made it."""
+    if read(p("plan.md")) == read(p(".plan.prev")):
+        return
+    with locked() as f:
+        new, old = read(p("plan.md")), read(p(".plan.prev"))
+        if new == old:
+            return
+        lines = lambda t: (t.rstrip("\n") + "\n").splitlines(True) if t else []
+        diff = "".join(list(difflib.unified_diff(lines(old), lines(new), n=1))[2:])
+        put(f, {"agent": author, "kind": "plan", "text": clip(diff, 3000)})
+        write(p(".plan.prev"), new)
+
+
+def fold(es):
+    """-> (superseded ids, {agent: {glob: task}})"""
+    dead, claims = set(), {}
+    for e in es:
+        if e["kind"] == "supersede":
+            dead.update(e.get("ids", []))
+        elif e["kind"] == "claim":
+            claims.setdefault(e["agent"], {}).update({g: e.get("task", "") for g in e["globs"]})
+        elif e["kind"] == "release":
+            if e.get("globs"):
+                for g in e["globs"]:
+                    claims.get(e["agent"], {}).pop(g, None)
+            else:
+                claims.pop(e["agent"], None)
+    return dead, claims
+
+
+def alive(agent, es):
+    try:
+        beat = os.path.getmtime(p(".state/%s.json" % agent))
+    except OSError:
+        beat = 0
+    last = max([e["ts"] for e in es if e["agent"] == agent] + [beat])
+    return time.time() - last < TTL
+
+
+def covers(glob, path):
+    g = glob.rstrip("/")
+    return fnmatch.fnmatch(path, g) or path.startswith(g + "/")
+
+
+def stale(e):
+    return any(fhash(os.path.join(ROOT, f)) != h for f, h in e.get("hashes", {}).items())
+
+
+def fmt(e):
+    if e["kind"] == "plan":
+        return "#%d PLAN CHANGED by %s:\n%s" % (e["id"], e["agent"], e["text"].rstrip())
+    ev = " [%s]" % ", ".join(e["evidence"]) if e.get("evidence") else ""
+    return "#%d %s (%s): %s%s%s" % (e["id"], e["kind"], e["agent"], e["text"], ev, " ⚠stale" if stale(e) else "")
+
+
+def digest(me):
+    es, off = entries(0)
+    dead, claims = fold(es)
+    out = ["[lucid] Shared dream of this project (.lucid/). You are `%s`: run every lucid command as `lucid --as %s ...`.\n"
+           "Log what other agents must not rediscover: `note decision|fact|failed|blocker \"...\" -e path:line`. "
+           "Claim files before editing: `claim 'glob' --for \"task\"`. ⚠stale = cited code changed since; re-verify it." % (me, me)]
+    plan = read(p("plan.md")).strip()
+    if plan:
+        out.append("## Plan (.lucid/plan.md)\n" + clip(plan, 2500))
+    dg = read(p("digest.md"))
+    m = re.match(r"<!-- lucid:upto=(\d+) -->\n?", dg)
+    upto = int(m.group(1)) if m else 0
+    if m:
+        out.append("## Consolidated (dream up to #%d)\n%s" % (upto, clip(dg[m.end():].strip(), 2000)))
+    act = ["- %s: %s%s" % (o, g, " (%s)" % t if t else "") for o, gs in claims.items() if alive(o, es) for g, t in gs.items()]
+    if act:
+        out.append("## Active claims\n" + "\n".join(act))
+    lines = [fmt(e) for e in es if e["kind"] in KINDS and e["id"] > upto and e["id"] not in dead]
+    budget, kept = CAP_DIGEST - sum(len(x) for x in out), []
+    for line in reversed(lines):  # keep the newest that fit
+        if len(line) + 1 > budget:
+            break
+        kept.insert(0, line)
+        budget -= len(line) + 1
+    if kept:
+        older = len(lines) - len(kept)
+        out.append("## Log (newest last)%s\n%s" % (
+            " (%d older: `lucid --as %s log`)" % (older, me) if older else "", "\n".join(kept)))
+    return "\n\n".join(out), off
+
+
+def delta(me, st):
+    """What other agents wrote since `me` last looked. Empty string = nothing new (0 tokens)."""
+    if "cursor" not in st:  # first contact, e.g. lucid was set up mid-session: full picture once
+        ctx, st["cursor"] = digest(me)
+    else:
+        es, st["cursor"] = entries(st["cursor"])
+        news = [e for e in es if e["agent"] != me]
+        ctx = ""
+        if news:
+            more = "… run `lucid --as %s log --since %d`" % (me, news[0]["id"] - 1)
+            ctx = "[lucid] %d update(s) from other agents since you last looked:\n%s" % (
+                len(news), clip("\n".join(map(fmt, news)), CAP_DELTA, more))
+    save_state(me, st)
+    return ctx
+
+
+# ---------- hooks ----------
+
+def emit(event, ctx, **extra):
+    out = dict(hookEventName=event, **extra)
+    if ctx:
+        out["additionalContext"] = ctx
+    if ctx or extra:
+        print(json.dumps({"hookSpecificOutput": out}))
+    return 0
+
+
+def claim_conflict(me, path):
+    if path == os.path.join(".lucid", "log.jsonl"):
+        return "lucid: log.jsonl is append-only; use `lucid --as %s note|supersede`." % me
+    es, _ = entries(0)
+    for owner, gs in fold(es)[1].items():
+        if owner != me and alive(owner, es):
+            for g, task in gs.items():
+                if covers(g, path):
+                    return ("lucid: `%s` is claimed by `%s` (%s%s). Work on something else, or coordinate: "
+                            "`lucid --as %s note blocker \"...\"` / SendMessage." % (path, owner, g, ": " + task if task else "", me))
+    return None
+
+
+def hook(event):
+    try:
+        inp = json.load(sys.stdin)
+    except ValueError:
+        inp = {}
+    setup(inp.get("cwd") or os.getcwd())
+    if not os.path.isdir(D):
+        return 0  # project hasn't opted in
+    if os.environ.get("LUCID_DEBUG"):
+        with open(p(".debug.jsonl"), "a", encoding="utf-8") as f:
+            f.write(json.dumps(dict(lucid_event=event, **inp)) + "\n")
+    me = who(inp)
+    tool, ti = inp.get("tool_name", ""), inp.get("tool_input") or {}
+    target = ti.get("file_path") or ti.get("notebook_path") or ""
+
+    if event == "PostToolUse":
+        if target and os.path.abspath(target) == p("plan.md"):
+            sync_plan(me)
+        return 0
+    # ponytail: an edit by another agent can land here before its PostToolUse and get tagged "user"; cosmetic only
+    sync_plan("user")  # plan edited outside Claude's tools (editor, sed, git checkout)
+    st = load_state(me)
+
+    if event in ("SessionStart", "SubagentStart"):
+        ctx, st["cursor"] = digest(me)
+        save_state(me, st)
+        return emit(event, ctx)
+    if event == "UserPromptSubmit":
+        return emit(event, delta(me, st))
+    if event == "PreToolUse":
+        why = None
+        cmd = ti.get("command", "") if tool == "Bash" else ""
+        if re.search(r"(?:^|[;&|(\n])\s*lucid\s", cmd) and not re.search(r"--as[ =]%s(?:\s|$)" % re.escape(me), cmd):
+            why = "lucid: you are `%s`; re-run as `lucid --as %s ...` so other agents know who wrote it." % (me, me)
+        elif tool in EDIT_TOOLS and target:
+            why = claim_conflict(me, rel(target))
+            st["edited"] = st.get("edited") or not why
+        ctx = delta(me, st)
+        if why:
+            return emit(event, ctx, permissionDecision="deny", permissionDecisionReason=why)
+        return emit(event, ctx)
+    if event in ("SubagentStop", "TaskCompleted") and inp.get("agent_id"):
+        mine = [e for e in entries(0)[0] if e["agent"] == me]
+        if st.get("edited") and not st.get("gated") and not any(e["kind"] in KINDS for e in mine):
+            st["gated"] = True
+            save_state(me, st)
+            sys.stderr.write(
+                "lucid: you edited files but logged nothing for the other agents. Before finishing, record decisions "
+                "(+why), dead ends and non-obvious facts: `lucid --as %s note decision \"...\" -e path:line`. "
+                "Then finish. (Asked once.)\n" % me)
+            return 2
+        if event == "SubagentStop" and fold(mine)[1].get(me):
+            append(agent=me, kind="release", globs=[], text="all (agent stopped)")
+    return 0
+
+
+# ---------- cli ----------
+
+def cli(argv):
+    ap = argparse.ArgumentParser(prog="lucid", description="Shared dream for Claude agents: live plan, decision log, file claims.")
+    ap.add_argument("--as", dest="me", default=os.environ.get("LUCID_AGENT", "human"), help="your agent id (hooks tell agents theirs)")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("init", help="create .lucid/ in this project")
+    n = sub.add_parser("note", help="log a decision, fact, dead end (failed) or blocker")
+    n.add_argument("kind", choices=KINDS)
+    n.add_argument("text")
+    n.add_argument("-e", "--evidence", nargs="+", default=[], help="path[:line[-line]] or free text")
+    c = sub.add_parser("claim", help="claim files (globs) before editing them")
+    c.add_argument("globs", nargs="+")
+    c.add_argument("--for", dest="task", default="")
+    sub.add_parser("release", help="drop your claims (all, or the given globs)").add_argument("globs", nargs="*")
+    s = sub.add_parser("supersede", help="retire wrong or outdated entries")
+    s.add_argument("ids", nargs="+", type=int)
+    s.add_argument("--why", default="")
+    sub.add_parser("log", help="print entries").add_argument("--since", type=int, default=0)
+    sub.add_parser("status", help="print the digest agents get")
+    a = ap.parse_args(argv)
+    me = re.sub(r"[^\w.-]", "_", a.me)
+    setup(os.getcwd())
+
+    if a.cmd == "init":
+        os.makedirs(p(".state"), exist_ok=True)
+        if not os.path.exists(p("plan.md")):
+            write(p("plan.md"), PLAN_TEMPLATE)
+        if not os.path.exists(p(".plan.prev")):
+            write(p(".plan.prev"), read(p("plan.md")))
+        write(p(".gitignore"), ".state/\n.plan.prev\n.debug.jsonl\n")
+        open(p("log.jsonl"), "a").close()
+        return print("lucid: dream ready at %s. Write the plan in .lucid/plan.md" % D)
+    if not os.path.isdir(D):
+        sys.exit("lucid: no .lucid/ found here; run `lucid init` first")
+    sync_plan("user")
+
+    if a.cmd == "note":
+        ev, hashes = [], {}
+        for x in a.evidence:
+            m = re.match(r"(.*?)(:\d+(?:-\d+)?)?$", x)
+            if os.path.isfile(m.group(1)):
+                ev.append(rel(m.group(1)) + (m.group(2) or ""))
+                hashes[rel(m.group(1))] = fhash(m.group(1))
+            else:
+                ev.append(x)
+        print("#%d logged" % append(agent=me, kind=a.kind, text=a.text, evidence=ev, hashes=hashes)["id"])
+    elif a.cmd == "claim":
+        es, _ = entries(0)
+        for owner, gs in fold(es)[1].items():
+            if owner != me and alive(owner, es):
+                for g in gs:
+                    for mine in a.globs:
+                        if covers(g, mine.rstrip("/*")) or covers(mine, g.rstrip("/*")):
+                            sys.exit("lucid: %s overlaps `%s`'s claim %s. Pick other work or coordinate." % (mine, owner, g))
+        e = append(agent=me, kind="claim", globs=a.globs, task=a.task,
+                   text=", ".join(a.globs) + (": " + a.task if a.task else ""))
+        print("#%d claimed" % e["id"])
+    elif a.cmd == "release":
+        print("#%d released" % append(agent=me, kind="release", globs=a.globs, text=", ".join(a.globs) or "all")["id"])
+    elif a.cmd == "supersede":
+        text = " ".join("#%d" % i for i in a.ids) + (": " + a.why if a.why else "")
+        print("#%d superseded %s" % (append(agent=me, kind="supersede", ids=a.ids, text=text)["id"], text))
+    elif a.cmd == "log":
+        es, _ = entries(0)
+        dead = fold(es)[0]
+        for e in es:
+            if e["id"] > a.since:
+                print(fmt(e) + (" (superseded)" if e["id"] in dead else ""))
+        print("last id: %d" % (es[-1]["id"] if es else 0))
+    elif a.cmd == "status":
+        print(digest(me)[0])
+
+
+if __name__ == "__main__":
+    if sys.argv[1:2] == ["hook"]:
+        try:
+            sys.exit(hook(sys.argv[2] if len(sys.argv) > 2 else ""))
+        except Exception as ex:  # a broken hook must never block the agent
+            sys.stderr.write("lucid hook error: %r\n" % ex)
+            sys.exit(1)
+    cli(sys.argv[1:])

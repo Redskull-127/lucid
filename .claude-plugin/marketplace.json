@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "lucid",
+  "description": "Shared memory for multi-agent Claude Code.",
+  "owner": {
+    "name": "Meer Tarbani",
+    "url": "https://www.meertarbani.in"
+  },
+  "plugins": [
+    {
+      "name": "lucid",
+      "description": "One shared dream for every Claude agent.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

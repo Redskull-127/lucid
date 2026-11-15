@@ -1,0 +1,22 @@
+{
+  "name": "lucid",
+  "displayName": "Lucid",
+  "version": "0.1.0",
+  "description": "One shared dream for every Claude agent: a live plan, an evidence-backed decision/dead-end log and file claims that the lead, subagents and Agent-Teams teammates all see, with plan changes streamed to running workers before their next tool call.",
+  "author": {
+    "name": "Meer Tarbani",
+    "url": "https://www.meertarbani.in"
+  },
+  "homepage": "https://lucid.meertarbani.in",
+  "repository": "https://github.com/Redskull-127/lucid",
+  "license": "MIT",
+  "keywords": [
+    "multi-agent",
+    "memory",
+    "subagents",
+    "agent-teams",
+    "planning",
+    "hooks"
+  ],
+  "icon": "./.claude-plugin/icon.png"
+}

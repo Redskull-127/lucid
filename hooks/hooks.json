@@ -1,0 +1,83 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -d \"${LUCID_ROOT:-$CLAUDE_PROJECT_DIR}/.lucid\" ] && command -v python3 >/dev/null && exec python3 \"${CLAUDE_PLUGIN_ROOT}/bin/lucid\" hook SessionStart; exit 0",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -d \"${LUCID_ROOT:-$CLAUDE_PROJECT_DIR}/.lucid\" ] && command -v python3 >/dev/null && exec python3 \"${CLAUDE_PLUGIN_ROOT}/bin/lucid\" hook SubagentStart; exit 0",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -d \"${LUCID_ROOT:-$CLAUDE_PROJECT_DIR}/.lucid\" ] && command -v python3 >/dev/null && exec python3 \"${CLAUDE_PLUGIN_ROOT}/bin/lucid\" hook UserPromptSubmit; exit 0",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -d \"${LUCID_ROOT:-$CLAUDE_PROJECT_DIR}/.lucid\" ] && command -v python3 >/dev/null && exec python3 \"${CLAUDE_PLUGIN_ROOT}/bin/lucid\" hook PreToolUse; exit 0",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -d \"${LUCID_ROOT:-$CLAUDE_PROJECT_DIR}/.lucid\" ] && command -v python3 >/dev/null && exec python3 \"${CLAUDE_PLUGIN_ROOT}/bin/lucid\" hook PostToolUse; exit 0",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -d \"${LUCID_ROOT:-$CLAUDE_PROJECT_DIR}/.lucid\" ] && command -v python3 >/dev/null && exec python3 \"${CLAUDE_PLUGIN_ROOT}/bin/lucid\" hook SubagentStop; exit 0",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -d \"${LUCID_ROOT:-$CLAUDE_PROJECT_DIR}/.lucid\" ] && command -v python3 >/dev/null && exec python3 \"${CLAUDE_PLUGIN_ROOT}/bin/lucid\" hook TaskCompleted; exit 0",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
