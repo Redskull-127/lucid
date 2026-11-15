@@ -163,12 +163,12 @@ export default function Home() {
             </h2>
             <div className="mt-8 grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-5 gap-y-1">
               <p className="contents">
-                <strong className="display text-[clamp(3.25rem,2.4rem+3vw,4.75rem)] leading-[1.05]">44/44</strong>
+                <strong className="display text-[clamp(3.25rem,2.4rem+3vw,4.75rem)] leading-[1.05]">54/54</strong>
                 <span className="text-muted">passed with lucid</span>
               </p>
               <p className="contents">
                 <strong className="display text-[clamp(3.25rem,2.4rem+3vw,4.75rem)] leading-[1.05] text-muted">
-                  11/44
+                  12/54
                 </strong>
                 <span className="text-muted">passed without</span>
               </p>
@@ -176,7 +176,7 @@ export default function Home() {
             <p className="mt-6 text-muted">Haiku 5.5 and Opus 5.5, in a small repo and a 12k-file monorepo, scored by a hidden acceptance test.</p>
             <ul className="mt-8 space-y-3 border-t border-line pt-6 text-[0.975rem] text-muted">
               <li>
-                In a 12k-file monorepo, workers without lucid missed <strong className="text-fg">14 of 18</strong> plan
+                In a 12k-file monorepo, workers without lucid missed <strong className="text-fg">23 of 28</strong> plan
                 changes.
               </li>
               <li>
@@ -193,16 +193,10 @@ export default function Home() {
 
           <div className="flex min-w-0 flex-col gap-6">
             <ThemedFigure
-              name="bench-success"
+              name="bench-headline"
               width={760}
-              height={678}
-              alt="Task success with vs without lucid. Haiku: plan changes early 8/8 vs 4/8, late 8/8 vs 0/8, policy 4/4 vs 4/4, simple 4/4 vs 4/4. Opus: early 5/5 vs 1/5, late 5/5 vs 2/5, simple 3/3 vs 3/3"
-            />
-            <ThemedFigure
-              name="bench-costpass-opus"
-              width={760}
-              height={300}
-              alt="Opus 5.5 cost per passing run: plan changes early $1.01 vs $4.57, late $1.06 vs $2.35, simple task $0.37 vs $0.35"
+              height={354}
+              alt="When the plan changes mid-build, with vs without lucid (Haiku and Opus pooled): demo repo early change 13/13 vs 5/13, late change 13/13 vs 2/13; private monorepo early change 13/13 vs 2/13, late change 15/15 vs 3/15"
             />
           </div>
         </div>

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="354" viewBox="0 0 760 354" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+<title>When the plan changes mid-build</title><desc>Demo repo · early change (Haiku + Opus · 13 runs per arm): with lucid 13/13, without 5/13; Demo repo · late change (Haiku + Opus · 13 runs per arm): with lucid 13/13, without 2/13; Monorepo · early change (Haiku + Opus · 13 runs per arm): with lucid 13/13, without 2/13; Monorepo · late change (Haiku + Opus · 15 runs per arm): with lucid 15/15, without 3/15</desc>
+<rect width="760" height="354" rx="10" fill="#151036"/>
+<text x="24" y="34" font-size="16" font-weight="600" fill="#f0efec">When the plan changes mid-build</text>
+<text x="24" y="55" font-size="12" fill="#c3c2b7">Hidden acceptance test passed · identical prompts and tools; only the plugin differs</text>
+<rect x="24" y="70" width="10" height="10" rx="2" fill="#3987e5"/>
+<text x="40" y="79" font-size="12" fill="#c3c2b7">with lucid</text>
+<rect x="132" y="70" width="10" height="10" rx="2" fill="#d95926"/>
+<text x="148" y="79" font-size="12" fill="#c3c2b7">without</text>
+<line x1="236.0" y1="96" x2="236.0" y2="324" stroke="#2a2358" stroke-width="1"/>
+<text x="236.0" y="340" font-size="11" fill="#898781" text-anchor="middle">0%</text>
+<line x1="343.0" y1="96" x2="343.0" y2="324" stroke="#2a2358" stroke-width="1"/>
+<text x="343.0" y="340" font-size="11" fill="#898781" text-anchor="middle">25%</text>
+<line x1="450.0" y1="96" x2="450.0" y2="324" stroke="#2a2358" stroke-width="1"/>
+<text x="450.0" y="340" font-size="11" fill="#898781" text-anchor="middle">50%</text>
+<line x1="557.0" y1="96" x2="557.0" y2="324" stroke="#2a2358" stroke-width="1"/>
+<text x="557.0" y="340" font-size="11" fill="#898781" text-anchor="middle">75%</text>
+<line x1="664.0" y1="96" x2="664.0" y2="324" stroke="#2a2358" stroke-width="1"/>
+<text x="664.0" y="340" font-size="11" fill="#898781" text-anchor="middle">100%</text>
+<text x="24" y="123" font-size="13" font-weight="500" fill="#f0efec">Demo repo · early change</text>
+<text x="24" y="139" font-size="11" fill="#898781">Haiku + Opus · 13 runs per arm</text>
+<path d="M236.0 110.0H660.0Q664.0 110.0 664.0 114.0V120.0Q664.0 124.0 660.0 124.0H236.0Z" fill="#3987e5"/>
+<text x="670.0" y="121.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">13/13</text>
+<path d="M236.0 126.0H396.6Q400.6 126.0 400.6 130.0V136.0Q400.6 140.0 396.6 140.0H236.0Z" fill="#d95926"/>
+<text x="406.6" y="137.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">5/13</text>
+<text x="24" y="177" font-size="13" font-weight="500" fill="#f0efec">Demo repo · late change</text>
+<text x="24" y="193" font-size="11" fill="#898781">Haiku + Opus · 13 runs per arm</text>
+<path d="M236.0 164.0H660.0Q664.0 164.0 664.0 168.0V174.0Q664.0 178.0 660.0 178.0H236.0Z" fill="#3987e5"/>
+<text x="670.0" y="175.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">13/13</text>
+<path d="M236.0 180.0H297.8Q301.8 180.0 301.8 184.0V190.0Q301.8 194.0 297.8 194.0H236.0Z" fill="#d95926"/>
+<text x="307.8" y="191.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">2/13</text>
+<text x="24" y="231" font-size="13" font-weight="500" fill="#f0efec">Monorepo · early change</text>
+<text x="24" y="247" font-size="11" fill="#898781">Haiku + Opus · 13 runs per arm</text>
+<path d="M236.0 218.0H660.0Q664.0 218.0 664.0 222.0V228.0Q664.0 232.0 660.0 232.0H236.0Z" fill="#3987e5"/>
+<text x="670.0" y="229.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">13/13</text>
+<path d="M236.0 234.0H297.8Q301.8 234.0 301.8 238.0V244.0Q301.8 248.0 297.8 248.0H236.0Z" fill="#d95926"/>
+<text x="307.8" y="245.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">2/13</text>
+<text x="24" y="285" font-size="13" font-weight="500" fill="#f0efec">Monorepo · late change</text>
+<text x="24" y="301" font-size="11" fill="#898781">Haiku + Opus · 15 runs per arm</text>
+<path d="M236.0 272.0H660.0Q664.0 272.0 664.0 276.0V282.0Q664.0 286.0 660.0 286.0H236.0Z" fill="#3987e5"/>
+<text x="670.0" y="283.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">15/15</text>
+<path d="M236.0 288.0H317.6Q321.6 288.0 321.6 292.0V298.0Q321.6 302.0 317.6 302.0H236.0Z" fill="#d95926"/>
+<text x="327.6" y="299.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">3/15</text>
+</svg>

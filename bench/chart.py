@@ -127,8 +127,39 @@ if __name__ == "__main__":
     per_pass = lambda s: sum(s["cost"]) / s["passed"] if s["passed"] else 0
     success_rows = [(name, "%s · %d runs per arm" % (mname, max(s["n"] for s in arms_of(m, sc).values())), arms_of(m, sc))
                     for sc, name, _ in SCENARIOS for m, mname in models if arms_of(m, sc)]
+    def pooled(scenarios, arm):
+        """Both arms of a scenario use the same model mix, so pooling models keeps the comparison fair."""
+        ss = [STATS[k] for k in STATS if k[1] in scenarios and k[2] == arm]
+        if not ss:
+            return None
+        return dict(n=sum(x["n"] for x in ss), passed=sum(x["passed"] for x in ss),
+                    models=[mn for m, mn in models if any(k[0] == m and k[1] in scenarios and k[2] == arm for k in STATS)])
+
+    def pooled_rows(spec):
+        rows = []
+        for name, scenarios in spec:
+            arms = {arm: pooled(scenarios, arm) for arm, _ in ARMS}
+            arms = {k: v for k, v in arms.items() if v}
+            if arms:
+                lead = arms.get("lucid") or next(iter(arms.values()))
+                mlabel = " + ".join(m.split()[0] for m in lead["models"]) if len(lead["models"]) > 1 else lead["models"][0]
+                rows.append((name, "%s · %d runs per arm" % (mlabel, lead["n"]), arms))
+        return rows
+
+    HEADLINE = [("Demo repo · early change", ["replan-early"]), ("Demo repo · late change", ["replan-late"]),
+                ("Monorepo · early change", ["monorepo-early"]), ("Monorepo · late change", ["monorepo-late"])]
+    PARITY = [("Simple task, both repos", ["control", "monorepo-control"]), ("Policy in a new session", ["memory"])]
+    fraction = lambda s: "%d/%d" % (s["passed"], s["n"])
+    pct = lambda s: 100 * s["passed"] / s["n"]
     for theme in THEMES:
-        chart("bench-success-%s.svg" % theme, "Task success: hidden acceptance test passed",
+        chart("bench-headline-%s.svg" % theme, "When the plan changes mid-build",
+              "Hidden acceptance test passed · identical prompts and tools; only the plugin differs",
+              pooled_rows(HEADLINE), pct, None, fraction, lambda v: "%d%%" % v, None, theme)
+        chart("bench-parity-%s.svg" % theme, "When there’s nothing to coordinate",
+              "Both sides pass every run; lucid only adds a small overhead here",
+              pooled_rows(PARITY), pct, None, fraction, lambda v: "%d%%" % v, None, theme)
+    for theme in THEMES:
+        chart("bench-success-%s.svg" % theme, "Task success by model: hidden acceptance test passed",
               "Claude Code headless · identical prompts and tools; only the plugin differs",
               success_rows, lambda s: 100 * s["passed"] / s["n"], None,
               lambda s: "%d%%  (%d/%d)" % (round(100 * s["passed"] / s["n"]), s["passed"], s["n"]),

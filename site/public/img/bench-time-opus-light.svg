@@ -1,44 +1,70 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="300" viewBox="0 0 760 300" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
-<title>Wall-clock time per run (seconds), Opus 5.5</title><desc>Plan changes early (while both workers are mid-task): with lucid 49 s, without 48 s; Plan changes late (after both workers' main edits): with lucid 57 s, without 54 s; Simple task (nothing to coordinate: overhead): with lucid 22 s, without 16 s</desc>
-<rect width="760" height="300" rx="10" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="462" viewBox="0 0 760 462" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+<title>Wall-clock time per run (seconds), Opus 5.5</title><desc>Plan changes early (while both workers are mid-task): with lucid 49 s, without 48 s; Plan changes late (after both workers' main edits): with lucid 57 s, without 54 s; Simple task (nothing to coordinate: overhead): with lucid 22 s, without 16 s; Monorepo: plan changes early (private 12k-file TS monorepo): with lucid 87 s, without 59 s; Monorepo: plan changes late (private 12k-file TS monorepo): with lucid 76 s, without 74 s; Monorepo: simple task (private 12k-file TS monorepo): with lucid 22 s, without 22 s</desc>
+<rect width="760" height="462" rx="10" fill="#ffffff"/>
 <text x="24" y="34" font-size="16" font-weight="600" fill="#0b0b0b">Wall-clock time per run (seconds), Opus 5.5</text>
 <text x="24" y="55" font-size="12" fill="#52514e">Opus 5.5 · 3–5 runs per arm · bar = mean, whisker = min–max</text>
 <rect x="24" y="70" width="10" height="10" rx="2" fill="#2a78d6"/>
 <text x="40" y="79" font-size="12" fill="#52514e">with lucid</text>
 <rect x="132" y="70" width="10" height="10" rx="2" fill="#eb6834"/>
 <text x="148" y="79" font-size="12" fill="#52514e">without</text>
-<line x1="236.0" y1="96" x2="236.0" y2="270" stroke="#e1e0d9" stroke-width="1"/>
-<text x="236.0" y="286" font-size="11" fill="#898781" text-anchor="middle">0</text>
-<line x1="343.0" y1="96" x2="343.0" y2="270" stroke="#e1e0d9" stroke-width="1"/>
-<text x="343.0" y="286" font-size="11" fill="#898781" text-anchor="middle">20</text>
-<line x1="450.0" y1="96" x2="450.0" y2="270" stroke="#e1e0d9" stroke-width="1"/>
-<text x="450.0" y="286" font-size="11" fill="#898781" text-anchor="middle">40</text>
-<line x1="557.0" y1="96" x2="557.0" y2="270" stroke="#e1e0d9" stroke-width="1"/>
-<text x="557.0" y="286" font-size="11" fill="#898781" text-anchor="middle">60</text>
-<line x1="664.0" y1="96" x2="664.0" y2="270" stroke="#e1e0d9" stroke-width="1"/>
-<text x="664.0" y="286" font-size="11" fill="#898781" text-anchor="middle">80</text>
+<line x1="236.0" y1="96" x2="236.0" y2="432" stroke="#e1e0d9" stroke-width="1"/>
+<text x="236.0" y="448" font-size="11" fill="#898781" text-anchor="middle">0</text>
+<line x1="321.6" y1="96" x2="321.6" y2="432" stroke="#e1e0d9" stroke-width="1"/>
+<text x="321.6" y="448" font-size="11" fill="#898781" text-anchor="middle">25</text>
+<line x1="407.2" y1="96" x2="407.2" y2="432" stroke="#e1e0d9" stroke-width="1"/>
+<text x="407.2" y="448" font-size="11" fill="#898781" text-anchor="middle">50</text>
+<line x1="492.8" y1="96" x2="492.8" y2="432" stroke="#e1e0d9" stroke-width="1"/>
+<text x="492.8" y="448" font-size="11" fill="#898781" text-anchor="middle">75</text>
+<line x1="578.4" y1="96" x2="578.4" y2="432" stroke="#e1e0d9" stroke-width="1"/>
+<text x="578.4" y="448" font-size="11" fill="#898781" text-anchor="middle">100</text>
+<line x1="664.0" y1="96" x2="664.0" y2="432" stroke="#e1e0d9" stroke-width="1"/>
+<text x="664.0" y="448" font-size="11" fill="#898781" text-anchor="middle">125</text>
 <text x="24" y="123" font-size="13" font-weight="500" fill="#0b0b0b">Plan changes early</text>
 <text x="24" y="139" font-size="11" fill="#898781">while both workers are mid-task</text>
-<path d="M236.0 110.0H493.4Q497.4 110.0 497.4 114.0V120.0Q497.4 124.0 493.4 124.0H236.0Z" fill="#2a78d6"/>
-<path d="M478.5 117.0H512.8M478.5 113.0v8M512.8 113.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
-<text x="518.8" y="121.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">49 s</text>
-<path d="M236.0 126.0H488.0Q492.0 126.0 492.0 130.0V136.0Q492.0 140.0 488.0 140.0H236.0Z" fill="#eb6834"/>
-<path d="M461.6 133.0H547.9M461.6 129.0v8M547.9 129.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
-<text x="553.9" y="137.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">48 s</text>
+<path d="M236.0 110.0H399.3Q403.3 110.0 403.3 114.0V120.0Q403.3 124.0 399.3 124.0H236.0Z" fill="#2a78d6"/>
+<path d="M391.2 117.0H413.1M391.2 113.0v8M413.1 113.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="419.1" y="121.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">49 s</text>
+<path d="M236.0 126.0H395.8Q399.8 126.0 399.8 130.0V136.0Q399.8 140.0 395.8 140.0H236.0Z" fill="#eb6834"/>
+<path d="M380.4 133.0H435.6M380.4 129.0v8M435.6 129.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="441.6" y="137.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">48 s</text>
 <text x="24" y="177" font-size="13" font-weight="500" fill="#0b0b0b">Plan changes late</text>
 <text x="24" y="193" font-size="11" fill="#898781">after both workers' main edits</text>
-<path d="M236.0 164.0H537.1Q541.1 164.0 541.1 168.0V174.0Q541.1 178.0 537.1 178.0H236.0Z" fill="#2a78d6"/>
-<path d="M496.3 171.0H587.4M496.3 167.0v8M587.4 167.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
-<text x="593.4" y="175.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">57 s</text>
-<path d="M236.0 180.0H518.2Q522.2 180.0 522.2 184.0V190.0Q522.2 194.0 518.2 194.0H236.0Z" fill="#eb6834"/>
-<path d="M436.0 187.0H641.8M436.0 183.0v8M641.8 183.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
-<text x="647.8" y="191.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">54 s</text>
+<path d="M236.0 164.0H427.3Q431.3 164.0 431.3 168.0V174.0Q431.3 178.0 427.3 178.0H236.0Z" fill="#2a78d6"/>
+<path d="M402.6 171.0H460.9M402.6 167.0v8M460.9 167.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="466.9" y="175.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">57 s</text>
+<path d="M236.0 180.0H415.2Q419.2 180.0 419.2 184.0V190.0Q419.2 194.0 415.2 194.0H236.0Z" fill="#eb6834"/>
+<path d="M364.0 187.0H495.7M364.0 183.0v8M495.7 183.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="501.7" y="191.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">54 s</text>
 <text x="24" y="231" font-size="13" font-weight="500" fill="#0b0b0b">Simple task</text>
 <text x="24" y="247" font-size="11" fill="#898781">nothing to coordinate: overhead</text>
-<path d="M236.0 218.0H349.9Q353.9 218.0 353.9 222.0V228.0Q353.9 232.0 349.9 232.0H236.0Z" fill="#2a78d6"/>
-<path d="M341.9 225.0H374.2M341.9 221.0v8M374.2 221.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
-<text x="380.2" y="229.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">22 s</text>
-<path d="M236.0 234.0H318.5Q322.5 234.0 322.5 238.0V244.0Q322.5 248.0 318.5 248.0H236.0Z" fill="#eb6834"/>
-<path d="M319.9 241.0H325.5M319.9 237.0v8M325.5 237.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
-<text x="331.5" y="245.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">16 s</text>
+<path d="M236.0 218.0H307.4Q311.4 218.0 311.4 222.0V228.0Q311.4 232.0 307.4 232.0H236.0Z" fill="#2a78d6"/>
+<path d="M303.8 225.0H324.5M303.8 221.0v8M324.5 221.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="330.5" y="229.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">22 s</text>
+<path d="M236.0 234.0H287.3Q291.3 234.0 291.3 238.0V244.0Q291.3 248.0 287.3 248.0H236.0Z" fill="#eb6834"/>
+<path d="M289.7 241.0H293.3M289.7 237.0v8M293.3 237.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="299.3" y="245.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">16 s</text>
+<text x="24" y="285" font-size="13" font-weight="500" fill="#0b0b0b">Monorepo: plan changes early</text>
+<text x="24" y="301" font-size="11" fill="#898781">private 12k-file TS monorepo</text>
+<path d="M236.0 272.0H530.7Q534.7 272.0 534.7 276.0V282.0Q534.7 286.0 530.7 286.0H236.0Z" fill="#2a78d6"/>
+<path d="M519.8 279.0H571.1M519.8 275.0v8M571.1 275.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="577.1" y="283.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">87 s</text>
+<path d="M236.0 288.0H435.4Q439.4 288.0 439.4 292.0V298.0Q439.4 302.0 435.4 302.0H236.0Z" fill="#eb6834"/>
+<path d="M394.6 295.0H476.0M394.6 291.0v8M476.0 291.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="482.0" y="299.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">59 s</text>
+<text x="24" y="339" font-size="13" font-weight="500" fill="#0b0b0b">Monorepo: plan changes late</text>
+<text x="24" y="355" font-size="11" fill="#898781">private 12k-file TS monorepo</text>
+<path d="M236.0 326.0H492.7Q496.7 326.0 496.7 330.0V336.0Q496.7 340.0 492.7 340.0H236.0Z" fill="#2a78d6"/>
+<path d="M458.3 333.0H518.8M458.3 329.0v8M518.8 329.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="524.8" y="337.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">76 s</text>
+<path d="M236.0 342.0H485.7Q489.7 342.0 489.7 346.0V352.0Q489.7 356.0 485.7 356.0H236.0Z" fill="#eb6834"/>
+<path d="M412.2 349.0H628.9M412.2 345.0v8M628.9 345.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="634.9" y="353.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">74 s</text>
+<text x="24" y="393" font-size="13" font-weight="500" fill="#0b0b0b">Monorepo: simple task</text>
+<text x="24" y="409" font-size="11" fill="#898781">private 12k-file TS monorepo</text>
+<path d="M236.0 380.0H305.8Q309.8 380.0 309.8 384.0V390.0Q309.8 394.0 305.8 394.0H236.0Z" fill="#2a78d6"/>
+<path d="M297.7 387.0H332.6M297.7 383.0v8M332.6 383.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="338.6" y="391.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">22 s</text>
+<path d="M236.0 396.0H307.4Q311.4 396.0 311.4 400.0V406.0Q311.4 410.0 307.4 410.0H236.0Z" fill="#eb6834"/>
+<path d="M292.4 403.0H325.0M292.4 399.0v8M325.0 399.0v8" stroke="#52514e" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="331.0" y="407.0" font-size="12" fill="#52514e" style="font-variant-numeric:tabular-nums">22 s</text>
 </svg>

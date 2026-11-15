@@ -13,7 +13,7 @@ export default function Benchmark() {
       <DocHeader title="Benchmark">
         The same tasks, run with and without lucid, on Claude Haiku 5.5 and Claude Opus 5.5, in a small repo and a
         large private monorepo. When the plan changed
-        mid-build, 44 of 44 runs passed with lucid and 11 of 44 without.
+        mid-build, 54 of 54 runs passed with lucid and 12 of 54 without.
       </DocHeader>
 
       <H2 id="method">Methodology</H2>
@@ -22,7 +22,7 @@ export default function Benchmark() {
         prompts, the tools, a fresh checkout per run, and project settings only (no personal plugins, hooks or{" "}
         <code>CLAUDE.md</code>). The lucid arm only adds the plugin and <code>lucid init</code>. A hidden acceptance test
         the agents never see scores the final code. Runs used two codebases: a small demo repo and a private 12k-file, ~950k-line
-        TypeScript monorepo, which isn&rsquo;t named here, and none of its code is published. The 120 runs shown cost $24.86 in total.
+        TypeScript monorepo, which isn&rsquo;t named here, and none of its code is published. The 146 runs shown cost $58.77 in total.
       </p>
       <H3 id="scenarios">Scenarios</H3>
       <ul>
@@ -47,6 +47,8 @@ export default function Benchmark() {
       </ul>
 
       <H2 id="results">Results</H2>
+      <ThemedFigure name="bench-headline" width={760} height={354} alt="When the plan changes mid-build, with vs without lucid (Haiku and Opus pooled): demo repo early change 13/13 vs 5/13, late change 13/13 vs 2/13; private monorepo early change 13/13 vs 2/13, late change 15/15 vs 3/15" />
+      <ThemedFigure name="bench-parity" width={760} height={246} alt="When there is nothing to coordinate, both sides pass: simple task 15/15 vs 15/15, policy in a new session 4/4 vs 4/4" />
       <Table
         head={["Scenario", "Model", "With lucid", "Without"]}
         numeric={[2, 3]}
@@ -59,31 +61,35 @@ export default function Benchmark() {
           ["Simple task", "Haiku 5.5", "4/4 · $0.011", "4/4 · $0.009"],
           ["", "Opus 5.5", "3/3 · $0.37", "3/3 · $0.35"],
           ["Monorepo: plan changes early", "Haiku 5.5", <>{b("8/8")} · $0.045</>, "2/8 · $0.043"],
+          ["", "Opus 5.5", <>{b("5/5")} · $1.60</>, <>{b("0/5")} · $1.42</>],
           ["Monorepo: plan changes late", "Haiku 5.5", <>{b("10/10")} · $0.053</>, "2/10 · $0.044"],
+          ["", "Opus 5.5", <>{b("5/5")} · $1.58</>, "1/5 · $1.53"],
           ["Monorepo: simple task", "Haiku 5.5", "5/5 · $0.019", "5/5 · $0.017"],
+          ["", "Opus 5.5", "3/3 · $0.55", "3/3 · $0.55"],
         ]}
       />
       <p>Cells show runs passed and mean cost per run.</p>
 
+      <H3 id="by-model">By model</H3>
       <ThemedFigure
         name="bench-success"
         width={760}
-        height={678}
-        alt="Task success with vs without lucid. Haiku: plan changes early 8/8 vs 4/8, late 8/8 vs 0/8, policy 4/4 vs 4/4, simple 4/4 vs 4/4. Opus: early 5/5 vs 1/5, late 5/5 vs 2/5, simple 3/3 vs 3/3"
+        height={840}
+        alt="Task success by model for every scenario, with vs without lucid. Exact numbers are in the table above."
       />
 
       <H2 id="what-it-shows">What it shows</H2>
       <ul>
         <li>
-          <strong>Plan changes mid-build: 44/44 with lucid, 11/44 without, across both models and both codebases.</strong>{" "}
+          <strong>Plan changes mid-build: 54/54 with lucid, 12/54 without, across both models and both codebases.</strong>{" "}
           Without lucid, Haiku missed every late change in the demo repo (0/8). Opus did better by re-checking the plan
           at the end (2/5), but still missed most changes. With lucid, the diff arrives before each worker’s next tool
           call.
         </li>
         <li>
           <strong>It holds in a large real codebase.</strong> In the private 12k-file monorepo, workers without lucid
-          missed the mid-task change in 14 of 18 runs, and with lucid all 18 passed. Each run cost 6% more for early
-          changes and 20% more for late ones.
+          missed the mid-task change in 23 of 28 runs, and with lucid all 28 passed. Even Opus missed it 9 times out of
+          10 without lucid. Each run cost 4–20% more.
         </li>
         <li>
           <strong>Cheaper per working result.</strong> lucid runs cost 2–26% more, mostly because they do the extra
@@ -104,7 +110,8 @@ export default function Benchmark() {
         </li>
         <li>
           <strong>Overhead when there’s nothing to coordinate:</strong> +$0.002 and about +4–5 s per run on Haiku
-          (+11–18%, in both codebases), and +$0.026 (+7%) and +6 s on Opus. Almost all of it is bookkeeping calls (see
+          (+11–18%, in both codebases), and +$0.026 (+7%) and +6 s on Opus in the demo repo. In the monorepo, Opus showed
+          no measurable overhead ($0.55 vs $0.55, 22 s vs 22 s). Almost all of the overhead is bookkeeping calls (see
           below).
         </li>
         <li>
@@ -118,8 +125,8 @@ export default function Benchmark() {
       <ThemedFigure
         name="bench-costpass-opus"
         width={760}
-        height={300}
-        alt="Opus 5.5 cost per passing run: plan changes early $1.01 vs $4.57, late $1.06 vs $2.35, simple task $0.37 vs $0.35"
+        height={462}
+        alt="Opus 5.5 cost per passing run: plan changes early $1.01 vs $4.57, late $1.06 vs $2.35, simple task $0.37 vs $0.35; monorepo early $1.60 vs no run passed, monorepo late $1.58 vs $7.63, monorepo simple task $0.55 vs $0.55"
       />
       <ThemedFigure
         name="bench-costpass-haiku"
@@ -147,6 +154,7 @@ export default function Benchmark() {
           ["Opus, plan changes late", "$1.064 · 57 s", "$1.044 · 74 s"],
           ["Monorepo (Haiku), plan changes early", "$0.045 · 49 s", "$0.046 · 52 s"],
           ["Monorepo (Haiku), plan changes late", "$0.053 · 57 s", "$0.048 · 58 s"],
+          ["Monorepo (Opus), plan changes late", "$1.580 · 76 s", "$1.682 · 115 s"],
         ]}
         numeric={[1, 2]}
       />
@@ -170,13 +178,13 @@ export default function Benchmark() {
       <ThemedFigure
         name="bench-cost-opus"
         width={760}
-        height={300}
+        height={462}
         alt="Opus 5.5 mean cost per run with min-max range, with vs without lucid"
       />
       <ThemedFigure
         name="bench-time-opus"
         width={760}
-        height={300}
+        height={462}
         alt="Opus 5.5 mean wall-clock seconds per run with min-max range, with vs without lucid"
       />
       <ThemedFigure
@@ -214,9 +222,9 @@ export default function Benchmark() {
       <H2 id="caveats">Caveats</H2>
       <Callout>
         <p>
-          The samples are small (3–10 runs per arm). The monorepo set ran on Haiku only, from a private harness that
-          names files in that repo, so it can&rsquo;t be reproduced from the public repo. To keep spend down, the Opus
-          set skips the memory scenario. Treat this as a strong signal, not a paper.
+          The samples are small (3–10 runs per arm). The monorepo runs came from a private harness that names files in
+          that repo, so they can&rsquo;t be reproduced from the public repo. To keep spend down, the memory scenario ran
+          on Haiku in the demo repo only. Treat this as a strong signal, not a paper.
         </p>
       </Callout>
     </>

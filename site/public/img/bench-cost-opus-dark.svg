@@ -1,46 +1,68 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="300" viewBox="0 0 760 300" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
-<title>Cost per run (USD, all agents), Opus 5.5</title><desc>Plan changes early (while both workers are mid-task): with lucid $1.006, without $0.914; Plan changes late (after both workers' main edits): with lucid $1.064, without $0.941; Simple task (nothing to coordinate: overhead): with lucid $0.371, without $0.345</desc>
-<rect width="760" height="300" rx="10" fill="#151036"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="462" viewBox="0 0 760 462" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+<title>Cost per run (USD, all agents), Opus 5.5</title><desc>Plan changes early (while both workers are mid-task): with lucid $1.006, without $0.914; Plan changes late (after both workers' main edits): with lucid $1.064, without $0.941; Simple task (nothing to coordinate: overhead): with lucid $0.371, without $0.345; Monorepo: plan changes early (private 12k-file TS monorepo): with lucid $1.605, without $1.415; Monorepo: plan changes late (private 12k-file TS monorepo): with lucid $1.580, without $1.526; Monorepo: simple task (private 12k-file TS monorepo): with lucid $0.546, without $0.549</desc>
+<rect width="760" height="462" rx="10" fill="#151036"/>
 <text x="24" y="34" font-size="16" font-weight="600" fill="#f0efec">Cost per run (USD, all agents), Opus 5.5</text>
 <text x="24" y="55" font-size="12" fill="#c3c2b7">Opus 5.5 · 3–5 runs per arm · bar = mean, whisker = min–max</text>
 <rect x="24" y="70" width="10" height="10" rx="2" fill="#3987e5"/>
 <text x="40" y="79" font-size="12" fill="#c3c2b7">with lucid</text>
 <rect x="132" y="70" width="10" height="10" rx="2" fill="#d95926"/>
 <text x="148" y="79" font-size="12" fill="#c3c2b7">without</text>
-<line x1="236.0" y1="96" x2="236.0" y2="270" stroke="#2a2358" stroke-width="1"/>
-<text x="236.0" y="286" font-size="11" fill="#898781" text-anchor="middle">$0.00</text>
-<line x1="321.6" y1="96" x2="321.6" y2="270" stroke="#2a2358" stroke-width="1"/>
-<text x="321.6" y="286" font-size="11" fill="#898781" text-anchor="middle">$0.25</text>
-<line x1="407.2" y1="96" x2="407.2" y2="270" stroke="#2a2358" stroke-width="1"/>
-<text x="407.2" y="286" font-size="11" fill="#898781" text-anchor="middle">$0.50</text>
-<line x1="492.8" y1="96" x2="492.8" y2="270" stroke="#2a2358" stroke-width="1"/>
-<text x="492.8" y="286" font-size="11" fill="#898781" text-anchor="middle">$0.75</text>
-<line x1="578.4" y1="96" x2="578.4" y2="270" stroke="#2a2358" stroke-width="1"/>
-<text x="578.4" y="286" font-size="11" fill="#898781" text-anchor="middle">$1.00</text>
-<line x1="664.0" y1="96" x2="664.0" y2="270" stroke="#2a2358" stroke-width="1"/>
-<text x="664.0" y="286" font-size="11" fill="#898781" text-anchor="middle">$1.25</text>
+<line x1="236.0" y1="96" x2="236.0" y2="432" stroke="#2a2358" stroke-width="1"/>
+<text x="236.0" y="448" font-size="11" fill="#898781" text-anchor="middle">$0.00</text>
+<line x1="343.0" y1="96" x2="343.0" y2="432" stroke="#2a2358" stroke-width="1"/>
+<text x="343.0" y="448" font-size="11" fill="#898781" text-anchor="middle">$0.50</text>
+<line x1="450.0" y1="96" x2="450.0" y2="432" stroke="#2a2358" stroke-width="1"/>
+<text x="450.0" y="448" font-size="11" fill="#898781" text-anchor="middle">$1.00</text>
+<line x1="557.0" y1="96" x2="557.0" y2="432" stroke="#2a2358" stroke-width="1"/>
+<text x="557.0" y="448" font-size="11" fill="#898781" text-anchor="middle">$1.50</text>
+<line x1="664.0" y1="96" x2="664.0" y2="432" stroke="#2a2358" stroke-width="1"/>
+<text x="664.0" y="448" font-size="11" fill="#898781" text-anchor="middle">$2.00</text>
 <text x="24" y="123" font-size="13" font-weight="500" fill="#f0efec">Plan changes early</text>
 <text x="24" y="139" font-size="11" fill="#898781">while both workers are mid-task</text>
-<path d="M236.0 110.0H576.6Q580.6 110.0 580.6 114.0V120.0Q580.6 124.0 576.6 124.0H236.0Z" fill="#3987e5"/>
-<path d="M562.9 117.0H591.6M562.9 113.0v8M591.6 113.0v8" stroke="#c3c2b7" stroke-width="1" fill="none" opacity="0.8"/>
-<text x="597.6" y="121.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$1.006</text>
-<path d="M236.0 126.0H545.1Q549.1 126.0 549.1 130.0V136.0Q549.1 140.0 545.1 140.0H236.0Z" fill="#d95926"/>
-<path d="M533.9 133.0H574.1M533.9 129.0v8M574.1 129.0v8" stroke="#c3c2b7" stroke-width="1" fill="none" opacity="0.8"/>
-<text x="580.1" y="137.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$0.914</text>
+<path d="M236.0 110.0H447.4Q451.4 110.0 451.4 114.0V120.0Q451.4 124.0 447.4 124.0H236.0Z" fill="#3987e5"/>
+<path d="M440.3 117.0H458.3M440.3 113.0v8M458.3 113.0v8" stroke="#c3c2b7" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="464.3" y="121.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$1.006</text>
+<path d="M236.0 126.0H427.7Q431.7 126.0 431.7 130.0V136.0Q431.7 140.0 427.7 140.0H236.0Z" fill="#d95926"/>
+<path d="M422.2 133.0H447.3M422.2 129.0v8M447.3 129.0v8" stroke="#c3c2b7" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="453.3" y="137.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$0.914</text>
 <text x="24" y="177" font-size="13" font-weight="500" fill="#f0efec">Plan changes late</text>
 <text x="24" y="193" font-size="11" fill="#898781">after both workers' main edits</text>
-<path d="M236.0 164.0H596.3Q600.3 164.0 600.3 168.0V174.0Q600.3 178.0 596.3 178.0H236.0Z" fill="#3987e5"/>
-<path d="M573.6 171.0H638.0M573.6 167.0v8M638.0 167.0v8" stroke="#c3c2b7" stroke-width="1" fill="none" opacity="0.8"/>
-<text x="644.0" y="175.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$1.064</text>
-<path d="M236.0 180.0H554.1Q558.1 180.0 558.1 184.0V190.0Q558.1 194.0 554.1 194.0H236.0Z" fill="#d95926"/>
-<path d="M526.8 187.0H595.5M526.8 183.0v8M595.5 183.0v8" stroke="#c3c2b7" stroke-width="1" fill="none" opacity="0.8"/>
-<text x="601.5" y="191.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$0.941</text>
+<path d="M236.0 164.0H459.7Q463.7 164.0 463.7 168.0V174.0Q463.7 178.0 459.7 178.0H236.0Z" fill="#3987e5"/>
+<path d="M447.0 171.0H487.3M447.0 167.0v8M487.3 167.0v8" stroke="#c3c2b7" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="493.3" y="175.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$1.064</text>
+<path d="M236.0 180.0H433.3Q437.3 180.0 437.3 184.0V190.0Q437.3 194.0 433.3 194.0H236.0Z" fill="#d95926"/>
+<path d="M417.8 187.0H460.7M417.8 183.0v8M460.7 183.0v8" stroke="#c3c2b7" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="466.7" y="191.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$0.941</text>
 <text x="24" y="231" font-size="13" font-weight="500" fill="#f0efec">Simple task</text>
 <text x="24" y="247" font-size="11" fill="#898781">nothing to coordinate: overhead</text>
-<path d="M236.0 218.0H359.0Q363.0 218.0 363.0 222.0V228.0Q363.0 232.0 359.0 232.0H236.0Z" fill="#3987e5"/>
-<path d="M361.0 225.0H366.6M361.0 221.0v8M366.6 221.0v8" stroke="#c3c2b7" stroke-width="1" fill="none" opacity="0.8"/>
-<text x="372.6" y="229.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$0.371</text>
-<path d="M236.0 234.0H350.2Q354.2 234.0 354.2 238.0V244.0Q354.2 248.0 350.2 248.0H236.0Z" fill="#d95926"/>
-<path d="M351.6 241.0H355.7M351.6 237.0v8M355.7 237.0v8" stroke="#c3c2b7" stroke-width="1" fill="none" opacity="0.8"/>
-<text x="361.7" y="245.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$0.345</text>
+<path d="M236.0 218.0H311.4Q315.4 218.0 315.4 222.0V228.0Q315.4 232.0 311.4 232.0H236.0Z" fill="#3987e5"/>
+<path d="M314.1 225.0H317.6M314.1 221.0v8M317.6 221.0v8" stroke="#c3c2b7" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="323.6" y="229.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$0.371</text>
+<path d="M236.0 234.0H305.9Q309.9 234.0 309.9 238.0V244.0Q309.9 248.0 305.9 248.0H236.0Z" fill="#d95926"/>
+<path d="M308.2 241.0H310.8M308.2 237.0v8M310.8 237.0v8" stroke="#c3c2b7" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="316.8" y="245.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$0.345</text>
+<text x="24" y="285" font-size="13" font-weight="500" fill="#f0efec">Monorepo: plan changes early</text>
+<text x="24" y="301" font-size="11" fill="#898781">private 12k-file TS monorepo</text>
+<path d="M236.0 272.0H575.4Q579.4 272.0 579.4 276.0V282.0Q579.4 286.0 575.4 286.0H236.0Z" fill="#3987e5"/>
+<path d="M567.5 279.0H601.7M567.5 275.0v8M601.7 275.0v8" stroke="#c3c2b7" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="607.7" y="283.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$1.605</text>
+<path d="M236.0 288.0H534.8Q538.8 288.0 538.8 292.0V298.0Q538.8 302.0 534.8 302.0H236.0Z" fill="#d95926"/>
+<path d="M523.9 295.0H563.6M523.9 291.0v8M563.6 291.0v8" stroke="#c3c2b7" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="569.6" y="299.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$1.415</text>
+<text x="24" y="339" font-size="13" font-weight="500" fill="#f0efec">Monorepo: plan changes late</text>
+<text x="24" y="355" font-size="11" fill="#898781">private 12k-file TS monorepo</text>
+<path d="M236.0 326.0H570.1Q574.1 326.0 574.1 330.0V336.0Q574.1 340.0 570.1 340.0H236.0Z" fill="#3987e5"/>
+<path d="M567.8 333.0H585.4M567.8 329.0v8M585.4 329.0v8" stroke="#c3c2b7" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="591.4" y="337.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$1.580</text>
+<path d="M236.0 342.0H558.5Q562.5 342.0 562.5 346.0V352.0Q562.5 356.0 558.5 356.0H236.0Z" fill="#d95926"/>
+<path d="M536.6 349.0H596.0M536.6 345.0v8M596.0 345.0v8" stroke="#c3c2b7" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="602.0" y="353.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$1.526</text>
+<text x="24" y="393" font-size="13" font-weight="500" fill="#f0efec">Monorepo: simple task</text>
+<text x="24" y="409" font-size="11" fill="#898781">private 12k-file TS monorepo</text>
+<path d="M236.0 380.0H348.8Q352.8 380.0 352.8 384.0V390.0Q352.8 394.0 348.8 394.0H236.0Z" fill="#3987e5"/>
+<path d="M349.7 387.0H358.9M349.7 383.0v8M358.9 383.0v8" stroke="#c3c2b7" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="364.9" y="391.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$0.546</text>
+<path d="M236.0 396.0H349.6Q353.6 396.0 353.6 400.0V406.0Q353.6 410.0 349.6 410.0H236.0Z" fill="#d95926"/>
+<path d="M349.1 403.0H358.4M349.1 399.0v8M358.4 399.0v8" stroke="#c3c2b7" stroke-width="1" fill="none" opacity="0.8"/>
+<text x="364.4" y="407.0" font-size="12" fill="#c3c2b7" style="font-variant-numeric:tabular-nums">$0.549</text>
 </svg>
