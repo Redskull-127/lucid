@@ -39,6 +39,24 @@ CAP_DIGEST, CAP_DELTA, CAP_CLAIMS = 6000, 2500, 1200  # ponytail: fixed char bud
 PLAN_TEMPLATE = "# Plan\n\n## Goal\n\n## Tasks (one owner per file set)\n- [ ] \n\n## Constraints / non-goals\n"
 # a `lucid` invocation at command position: start, after ; & | ( newline ` or $( , optionally behind VAR=x prefixes
 LUCID_CMD = re.compile(r"(^|[;&|(\n`]|\$\()(\s*(?:\w+=\S*\s+)*)lucid(?:\s+--as[ =]\S+)?(?=\s|$)")
+# Files a Bash command writes. Agents often edit through Bash (seen live: a python heredoc), which would
+# otherwise bypass claims and the stop gate. ponytail: a heuristic; it misses writes hidden behind variables
+# in other languages and can flag a quoted ">" as a write, which only means one extra "please log" nudge.
+BASH_WRITES = [re.compile(rx) for rx in (
+    r"(?<![<>&\d])>>?\s*([^\s;&|<>()'\"]+)",                         # > file, >> file (not 2>&1)
+    r"\btee\s+(?:-\w+\s+)*([^\s;&|]+)",
+    r"\b(?:cp|mv|install)\s+(?:-\w+\s+)*\S+\s+([^\s;&|]+)",          # destination
+    r"\b(?:rm|truncate|touch)\s+(?:-\w+\s+)*([^\s;&|]+)",
+    r"\bsed\b[^;&|\n]*\s-[A-Za-z]*i\b[^;&|\n]*?\s([^\s;&|'\"]+)\s*(?:$|[;&|\n])",  # sed -i ... file
+    r"open\(\s*['\"]([^'\"]+)['\"]\s*,\s*['\"][wax]",
+)]
+
+
+def bash_writes(cmd):
+    paths = [m for rx in BASH_WRITES for m in rx.findall(cmd)]
+    if re.search(r"\.write(?:_text|_bytes|lines)?\(", cmd):  # scripts writing through variables: any quoted path
+        paths += re.findall(r"['\"]([\w./-]+\.\w+)['\"]", cmd)
+    return [x for x in paths if x != "/dev/null" and not x.startswith(("&", "$", "-"))]
 ROOT = D = ""
 
 
@@ -373,6 +391,12 @@ def hook(event):
             fixed = LUCID_CMD.sub(lambda m: m.group(1) + m.group(2) + "lucid --as " + me, cmd)
             if fixed != cmd:
                 extra["updatedInput"] = dict(ti, command=fixed)
+            writes = bash_writes(cmd)
+            for w in writes:
+                why = claim_conflict(me, os.path.join(str(inp.get("cwd") or ROOT), os.path.expanduser(w)))
+                if why:
+                    break
+            st["edited"] = st.get("edited") or (bool(writes) and not why)
         elif tool in EDIT_TOOLS and target:
             why = claim_conflict(me, target)
             st["edited"] = st.get("edited") or not why

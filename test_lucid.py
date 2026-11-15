@@ -99,6 +99,23 @@ assert stamped("  lucid") == "  lucid --as %s" % b
 for untouched in ("lucid --as %s log" % b, "grep -r lucid .", "cat lucid.txt", "./bin/lucid log", "pip install lucid-x", "mylucid note"):
     assert "updatedInput" not in bash(untouched), untouched
 
+# writes through Bash respect claims too (seen live: a teammate edited via a python heredoc)
+denied = lambda cmd: bash(cmd).get("permissionDecision") == "deny"
+pr.cli("--as", a, "claim", "db/**")
+for cmd in ("sed -i 's/a/b/' db/x.py", "echo hi > db/x.py", "echo hi >> ./db/x.py", "cat a | tee db/x.py",
+            "cp a.py db/x.py", "rm -f db/x.py", "python3 - <<'EOF'\np = 'db/x.py'\nopen(p, 'w').write('x')\nEOF",
+            "python3 -c \"open('db/x.py', 'w').write('1')\"", "echo x > %s" % pr.path("db", "x.py")):
+    assert denied(cmd), cmd
+for cmd in ("cat db/x.py", "grep x db/x.py 2>&1", "python3 -c 'import db'", "ls > /dev/null", "sed -n 1p db/x.py",
+            "cp db/x.py /tmp/copy.py", "echo hi > notes.txt"):
+    assert not denied(cmd), cmd
+assert not bash("sed -i 's/a/b/' db/x.py", A).get("permissionDecision")          # the owner may
+pr.cli("--as", a, "release", "db/**")
+E = {"agent_id": "agent-e", "agent_type": "general-purpose"}
+pr.hook("SubagentStart", **E)
+bash("python3 - <<'EOF'\nopen('ui.py', 'w').write('x')\nEOF", E)                 # edited via Bash only...
+assert pr.hook("SubagentStop", **E)[0] == 2                                      # ...still asked to log once
+
 assert "permissionDecision" not in pr.edit(C, "ui.py")
 assert pr.hook("SubagentStop", **C)[0] == 2                     # edited, logged nothing: asked once
 assert pr.hook("SubagentStop", **C)[0] == 0
