@@ -12,6 +12,6 @@ The user changed the plan: $ARGUMENTS
    - Strike dropped tasks: `~~task~~ (dropped: why)`.
    - Give each new task an owner and a file set.
    - Keep it short.
-3. Run `lucid --as <your id> note decision "replan: <one line> because <why>"`.
+3. Run `lucid note decision "replan: <one line> because <why>"`.
 4. Running workers get the plan diff before their next tool call. If the change makes a worker's claimed task obsolete or conflicting, message that worker directly (SendMessage) instead of waiting for it to finish.
 5. Tell the user what changed in one or two lines.

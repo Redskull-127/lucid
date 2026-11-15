@@ -67,7 +67,7 @@ with open(plan, "a") as f:
     f.write("- add OAuth\n")
 hook("PostToolUse", tool_name="Edit", tool_input={"file_path": plan}, **A)
 d = ctx(hook("PreToolUse", tool_name="Read", tool_input={}, **B))
-assert "PLAN CHANGED by " + a in d and "+- add OAuth" in d, d
+assert "PLAN CHANGED by " + a in d and "+- add OAuth" in d and "overrides your original brief" in d, d
 
 # file claims: owner may edit, everyone else is denied, overlapping claims are refused
 assert run("--as", a, "claim", "db/**", "--for", "migrations").returncode == 0
@@ -78,11 +78,13 @@ assert hook("PreToolUse", tool_name="Write", tool_input={"file_path": os.path.jo
 assert "permissionDecision" not in edit(B, "db/x.py", env={"LUCID_CLAIM_TTL": "0"})  # lapsed owner
 assert edit(B, ".lucid/log.jsonl")["permissionDecision"] == "deny"
 
-# agents must run lucid under their own id
-r = hook("PreToolUse", tool_name="Bash", tool_input={"command": "lucid note fact x"}, **B)[1]
-assert r["permissionDecision"] == "deny" and b in r["permissionDecisionReason"]
-assert "permissionDecision" not in hook("PreToolUse", tool_name="Bash", tool_input={"command": "cd . && lucid --as %s log" % b}, **B)[1]
-assert "permissionDecision" not in hook("PreToolUse", tool_name="Bash", tool_input={"command": "grep lucid README"}, **B)[1]
+# every lucid call gets the caller's real id stamped on (missing or wrong --as), nothing is auto-approved
+bash = lambda cmd: hook("PreToolUse", tool_name="Bash", tool_input={"command": cmd}, **B)[1]
+r = bash("lucid note fact x")
+assert r["updatedInput"]["command"] == "lucid --as %s note fact x" % b and "permissionDecision" not in r
+assert bash("cd . && lucid --as w-pricing log")["updatedInput"]["command"] == "cd . && lucid --as %s log" % b
+assert "updatedInput" not in bash("lucid --as %s log" % b)
+assert "updatedInput" not in bash("grep lucid README")
 
 # stop gate: an agent that edited but logged nothing is asked once; stopping releases claims
 assert "permissionDecision" not in edit(C, "ui.py")

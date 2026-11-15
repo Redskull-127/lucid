@@ -71,7 +71,7 @@ flowchart LR
 | **SessionStart** (also after `/compact`) · **SubagentStart** | Injects the plan, the live memory and active claims. Subagents start with the full shared context instead of a one-paragraph brief. |
 | **UserPromptSubmit** · **PreToolUse** | Injects only what *other* agents wrote since you last looked. When nothing changed it injects nothing and costs no tokens. |
 | **PreToolUse** on edits | 🔒 Blocks an edit to a file that another active agent has claimed. |
-| **PreToolUse** on Bash | Makes each agent run `lucid --as <its id>`, so every entry records who wrote it. |
+| **PreToolUse** on Bash | Adds the calling agent's real id to every `lucid` command, so every entry records who wrote it and agents never have to manage ids. |
 | **SubagentStop** · **TaskCompleted** | Asks once for notes from an agent that edited files but logged nothing. A stopping subagent's claims are released. |
 
 > lucid stays **inactive** until a project opts in with `lucid init`. In every other project the hooks only run a quick check that `.lucid/` doesn't exist.
@@ -135,6 +135,12 @@ This used `claude -p` on Haiku. A subagent was spawned to work through the plan,
 ```
 
 The worker added `multiply()`. In the same run, it logged a note before it had finished, so the note was out of date. lucid flagged it **⚠stale** because the cited file had changed since, and the lead agent pointed out the inaccuracy.
+
+**Two workers in parallel.** `/lucid:swarm` split a task into `shop/pricing.py` and `shop/cart.py`, one worker each. The moment the cart worker claimed its file, a human added a requirement spanning both files: *"`Cart.total()` must apply `discount()` over 100"*. The cart worker got the diff mid-task, applied it itself, and logged the decision. Both claims were released automatically. A hidden acceptance test the agents never saw passed 4/4.
+
+These runs also uncovered two bugs, both fixed:
+- Leads invented worker ids, so lucid now stamps every agent's real id on its `lucid` commands.
+- One worker obeyed its stale brief over the plan change, so plan changes now state that they override the original brief.
 
 ## 🧪 Honest limits
 

@@ -3,8 +3,8 @@ name: dream
 description: Consolidate the lucid log into a short digest. Merges duplicates, retires outdated or wrong entries, re-checks stale ones and proposes lasting lessons for CLAUDE.md. Use when the log gets long, or before handing the project to a new session.
 ---
 
-1. Run `lucid --as <your id> log` and read every entry. The last line shows `last id: N`.
-2. For each ⚠stale entry, re-read the code it cites. If the entry is no longer true, retire it with `lucid --as <your id> supersede <ids> --why "..."`. Also supersede duplicates, keeping the clearest one.
+1. Run `lucid log` and read every entry. The last line shows `last id: N`.
+2. For each ⚠stale entry, re-read the code it cites. If the entry is no longer true, retire it with `lucid supersede <ids> --why "..."`. Also supersede duplicates, keeping the clearest one.
 3. Write `.lucid/digest.md`.
    - The first line must be exactly `<!-- lucid:upto=N -->`.
    - Then at most about 40 lines: current decisions (with why), dead ends, and key facts with evidence.
