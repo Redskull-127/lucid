@@ -111,7 +111,7 @@ Cells show runs passed and mean cost per run.
 
 **What it shows**
 - **Plan changes mid-build: 26/26 with lucid, 7/26 without, across both models.** Without lucid, Haiku missed every late change (0/8). Opus did better by re-checking the plan at the end (2/5), but still missed most changes. With lucid, the diff arrives before each worker's next tool call.
-- **Cheaper per working result.** lucid runs cost 2–26% more, because they do the extra work the change requires. Per *passing* run they cost about half as much on Haiku ($0.031 vs $0.061). On Opus they cost $1.01 vs $4.57 for early changes and $1.06 vs $2.35 for late ones.
+- **Cheaper per working result.** lucid runs cost 2–26% more, mostly because they do the extra work the change requires (see *Why lucid runs cost a bit more* below). Per *passing* run they cost about half as much on Haiku ($0.031 vs $0.061). On Opus they cost $1.01 vs $4.57 for early changes and $1.06 vs $2.35 for late ones.
 - **Plan changed by chatting with the lead: parity, 3/3 vs 3/3.** In live tmux sessions, a lead without lucid relayed the change to its workers or applied it itself. lucid's edge is for changes that don't pass through the lead's chat: you editing the plan, another agent, or another session. It also makes chat changes persist: when workers are active, lucid asks the lead to write the change into `plan.md`, where it survives `/compact`.
 - **One agent across sessions: parity.** Claude Code's built-in memory already carries the policy forward. lucid matches it; it doesn't beat it.
 - **Overhead when there's nothing to coordinate:** +$0.002 and +5 s per run on Haiku, and +$0.026 (+7%) and +6 s on Opus. That comes from the hooks and the injected context.
@@ -119,6 +119,21 @@ Cells show runs passed and mean cost per run.
 
 <details>
 <summary>Raw cost and time per run, per model</summary>
+
+**Why lucid runs cost a bit more and take a bit longer**, measured from the run transcripts:
+
+1. **They do the work the change requires.** Most of the gap in the plan-change scenarios is work the baseline skipped: a failing run never applies the change. Compare only runs that passed:
+
+   | | with lucid | without, passing runs only |
+   |---|---|---|
+   | Haiku, plan changes early | $0.031 · 46 s | $0.035 · 54 s |
+   | Opus, plan changes early | $1.006 · 49 s | $0.987 · 58 s |
+   | Opus, plan changes late | $1.064 · 57 s | $1.044 · 74 s |
+
+   When the baseline gets it right, it costs about the same and takes longer, because the lead discovers the change late and the work gets redone.
+2. **Bookkeeping calls.** Agents run short `lucid` commands to claim files and log decisions. That's about 9 per run with two workers, and about 5 even on the trivial single-agent task (10 tool calls vs 6). Each call is cheap but costs a model turn. On the simple task this is the whole overhead: +$0.002 on Haiku, +$0.026 on Opus, and +5–6 s.
+3. **Injected context is small.** Hooks added about 340 characters per simple run, and about 4,700 characters (around 1,200 tokens) across all agents in a two-worker run. Each run processes 0.6–1 million tokens, mostly prompt-cache reads. Hook latency is about 25 ms per tool call, roughly 1 s per run.
+
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/bench-cost-opus-dark.svg">

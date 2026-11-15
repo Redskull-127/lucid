@@ -114,6 +114,41 @@ export default function Benchmark() {
 
       <H2 id="raw">Raw cost and time per run</H2>
       <p>Mean per run, with the min–max range, for each model.</p>
+
+      <H3 id="why-cost">Why lucid runs cost a bit more and take a bit longer</H3>
+      <p>Measured from the run transcripts, three things explain the gap.</p>
+      <ol>
+        <li>
+          <strong>They do the work the change requires.</strong> Most of the gap in the plan-change scenarios is work
+          the baseline skipped: a failing run never applies the change. Compare only runs that passed:
+        </li>
+      </ol>
+      <Table
+        head={["", "with lucid", "without, passing runs only"]}
+        rows={[
+          ["Haiku, plan changes early", "$0.031 · 46 s", "$0.035 · 54 s"],
+          ["Opus, plan changes early", "$1.006 · 49 s", "$0.987 · 58 s"],
+          ["Opus, plan changes late", "$1.064 · 57 s", "$1.044 · 74 s"],
+        ]}
+        numeric={[1, 2]}
+      />
+      <p>
+        When the baseline gets it right, it costs about the same and takes longer, because the lead discovers the
+        change late and the work gets redone.
+      </p>
+      <ol start={2}>
+        <li>
+          <strong>Bookkeeping calls.</strong> Agents run short <code>lucid</code> commands to claim files and log
+          decisions. That&rsquo;s about 9 per run with two workers, and about 5 even on the trivial single-agent task
+          (10 tool calls vs 6). Each call is cheap but costs a model turn. On the simple task this is the whole
+          overhead: +$0.002 on Haiku, +$0.026 on Opus, and +5–6 s.
+        </li>
+        <li>
+          <strong>Injected context is small.</strong> Hooks added about 340 characters per simple run, and about 4,700
+          characters (around 1,200 tokens) across all agents in a two-worker run. Each run processes 0.6–1 million
+          tokens, mostly prompt-cache reads. Hook latency is about 25 ms per tool call, roughly 1 s per run.
+        </li>
+      </ol>
       <ThemedFigure
         name="bench-cost-opus"
         width={760}
