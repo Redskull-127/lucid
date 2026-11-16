@@ -375,6 +375,16 @@ pq.cli("--as", a, "note", "blocker", "need the row type")
 out = w.communicate(timeout=15)[0]
 assert "need the row type" in out and "just a fact" not in out and "my own" not in out, out
 
+# ...and returns as soon as this lead's workers have all stopped (bench: `claude -p` waited 5 idle minutes on it)
+pz = Project()
+pz.hook("SubagentStart", **A)
+w = subprocess.Popen([sys.executable, LUCID, "--as", main, "wait"], cwd=pz.root, env=BASE_ENV, stdout=subprocess.PIPE, text=True)
+time.sleep(0.5)
+t0 = time.time()
+assert pz.hook("SubagentStop", **A)[0] == 0
+out = w.communicate(timeout=15)[0]
+assert "all your workers have stopped" in out and time.time() - t0 < 5, out
+
 # Stop nudge: a lead going idle while its workers hold claims is told to arm `lucid wait`, once
 assert pq.cli("--as", a, "claim", "x.py").returncode == 0
 assert pq.hook("Stop")[0] == 0                                   # a waiter is listening (fresh heartbeat)

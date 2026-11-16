@@ -544,7 +544,8 @@ def hook(event):
     if event in ("SessionStart", "SubagentStart"):
         ctx, st["cursor"] = digest(me)
         if event == "SubagentStart":
-            st["parent"] = who({"session_id": inp.get("session_id", "")})  # the lead that spawned it (Stop nudge)
+            st["parent"] = who({"session_id": inp.get("session_id", "")})  # the lead that spawned it (Stop nudge, wait)
+            st.pop("stopped", None)
         save_state(me, st)
         return emit(event, ctx)
     if event == "UserPromptSubmit":
@@ -607,6 +608,9 @@ def hook(event):
             return 2
         if event == "SubagentStop" and fold(mine)[1].get(me):
             append(agent=me, kind="release", globs=[], text="all (agent stopped)")
+        if event == "SubagentStop":
+            st["stopped"] = True  # lets the lead's `lucid wait` return once every worker is done
+            save_state(me, st)
     if event == "Stop" and not inp.get("agent_id") and not inp.get("stop_hook_active"):
         # Field run: a worker's blocker sat 19 min because the lead had gone idle. A background `lucid wait` wakes it.
         workers = sorted(o for o in live_claims(entries(0)[0]) if o != me and load_state(o).get("parent") == me)
@@ -743,11 +747,15 @@ def cli(argv):
                 print("\n".join(map(fmt, hits)))
                 return print("lucid: act on this, then run `lucid wait` in the background again.")
             try:
-                beats = [x.stat().st_mtime for x in os.scandir(p(".state")) if x.name.endswith(".json")
-                         and not x.name.endswith(".dirty.json") and x.name != me + ".json"]
+                others = [x for x in os.scandir(p(".state")) if x.name.endswith(".json")
+                          and not x.name.endswith(".dirty.json") and x.name != me + ".json"]
             except OSError:
-                beats = []
-            if any(time.time() - t < 300 for t in beats):
+                others = []
+            # Bench: `claude -p` stays up while this runs, so idling 5 min after the last worker stopped cost 10 min.
+            mine = [s for s in (load_state(x.name[:-5]) for x in others if x.name.startswith("ag-")) if s.get("parent") == me]
+            if mine and all(s.get("stopped") for s in mine):
+                return print("lucid: all your workers have stopped; nothing left to wait for.")
+            if any(time.time() - x.stat().st_mtime < 300 for x in others):
                 busy = time.time()
             elif time.time() - busy > 300:
                 return print("lucid: no other agent has been active for 5 min; stopped waiting.")
