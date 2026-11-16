@@ -8,6 +8,7 @@ tool call, so nobody works from a stale plan or a lossy summary.
 
   lucid [--as ID] init | note KIND TEXT [-e path:line ...] | claim GLOB... [--for TASK]
                   | release [GLOB...] | supersede ID... [--why W] | log [--since ID] | status
+                  | wait [--timeout S] | end
   lucid hook EVENT     (hook JSON on stdin; wired in hooks/hooks.json via hooks/guard.sh)
 """
 import argparse
@@ -35,7 +36,11 @@ def _int_env(name, default):
 KINDS = ("decision", "fact", "failed", "blocker")
 EDIT_TOOLS = ("Edit", "Write", "MultiEdit", "NotebookEdit")
 TTL = _int_env("LUCID_CLAIM_TTL", 1200)  # a claim lapses after 20 min of owner silence
-CAP_DIGEST, CAP_DELTA, CAP_CLAIMS = 6000, 2500, 1200  # ponytail: fixed char budgets, make configurable if they bite
+STRAY_ALARM = _int_env("LUCID_STRAY_ALARM", 20)  # one command changing this many unclaimed files raises a blocker
+CAP_DIGEST, CAP_DELTA, CAP_CLAIMS, CAP_PLAN = 6000, 2500, 1200, 2500  # ponytail: fixed char budgets, make configurable if they bite
+# plan sections that must reach every agent whole; the rest (tasks, notes) is trimmed first. Field run: the cut
+# landed mid-Constraints ("Never z.from…") while 1,100 chars of task globs above it went through.
+PROTECTED = re.compile(r"goal|constraint|rule|never|stop|must", re.I)
 PLAN_TEMPLATE = "# Plan\n\n## Goal\n\n## Tasks (one owner per file set)\n- [ ] \n\n## Constraints / non-goals\n"
 # a `lucid` invocation at command position: start, after ; & | ( newline ` or $( , optionally behind VAR=x prefixes
 LUCID_CMD = re.compile(r"(^|[;&|(\n`]|\$\()(\s*(?:\w+=\S*\s+)*)lucid(?:\s+--as[ =]\S+)?(?=\s|$)")
@@ -121,6 +126,52 @@ def fhash(path):
             return hashlib.sha1(f.read()).hexdigest()[:12]
     except OSError:
         return None
+
+
+def file_lines(path):
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return f.read().split("\n")
+    except OSError:
+        return None
+
+
+def win_sha(lines):
+    return hashlib.sha1("\n".join(x.rstrip() for x in lines).encode()).hexdigest()[:12]
+
+
+@functools.lru_cache(maxsize=None)
+def anchored(path, n, sha):
+    """Do the cited lines (with their context) still exist anywhere in the file? Moving them is fine, editing isn't."""
+    lines = file_lines(os.path.join(ROOT, path))
+    return lines is not None and any(win_sha(lines[i:i + n]) == sha for i in range(max(len(lines) - n + 1, 1)))
+
+
+def git_dirty():
+    """{path: [XY, mtime_ns]} for what git sees as changed, paths relative to ROOT; None outside a work tree."""
+    try:  # porcelain paths are relative to the repo top, so strip the prefix when .lucid/ lives in a subdirectory
+        pre = subprocess.run(["git", "rev-parse", "--show-prefix"], cwd=ROOT, capture_output=True, timeout=4)
+        out = subprocess.run(["git", "--no-optional-locks", "status", "--porcelain", "-z", "--", "."], cwd=ROOT,
+                             capture_output=True, timeout=4)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if pre.returncode or out.returncode:
+        return None
+    pre = pre.stdout.decode("utf-8", "replace").strip()
+    recs, res, i = out.stdout.decode("utf-8", "replace").split("\0"), {}, 0
+    while i < len(recs):
+        r, i = recs[i], i + 1
+        if len(r) < 4:
+            continue
+        if "R" in r[:2] or "C" in r[:2]:
+            i += 1  # a rename/copy record is followed by its source path
+        f = r[3:][len(pre):] if r[3:].startswith(pre) else None
+        if f:
+            try:
+                res[f] = [r[:2], os.stat(os.path.join(ROOT, f)).st_mtime_ns]
+            except OSError:
+                res[f] = [r[:2], 0]  # deleted
+    return res
 
 
 def rel(path):
@@ -214,6 +265,9 @@ def entries(start=0):
     return out, start + end
 
 
+TICK = re.compile(r"^(\s*[-*] )\[[ xX]\]", re.M)
+
+
 def sync_plan(author):
     """Turn any change to plan.md into a logged diff, whoever made it."""
     if read(p("plan.md")) == read(p(".plan.prev")):
@@ -222,10 +276,40 @@ def sync_plan(author):
         new, old = read(p("plan.md")), read(p(".plan.prev"))
         if new == old:
             return
-        lines = lambda t: (t.rstrip("\n") + "\n").splitlines(True) if t else []
-        diff = "".join(list(difflib.unified_diff(lines(old), lines(new), n=1))[2:])
-        put(f, {"agent": author, "kind": "plan", "text": clip(diff, 3000)})
+        try:  # an agent announced this edit (PreToolUse): credit it, not "user". Field run: 4 of 4 sed ticks were misfiled.
+            if author == "user" and time.time() - os.path.getmtime(p(".state/plan-editor")) < 120:
+                author = read(p(".state/plan-editor")).strip() or author
+            os.remove(p(".state/plan-editor"))
+        except OSError:
+            pass
+        e = {"agent": author, "kind": "plan"}
+        if TICK.sub(r"\1[ ]", old) == TICK.sub(r"\1[ ]", new):  # only checkboxes flipped: progress, not a new directive
+            ticked = [x for x in new.splitlines() if TICK.match(x) and x not in old.splitlines()]
+            e.update(progress=True, text=", ".join(re.sub(r"^\s*[-*] ", "", x).split(":")[0][:50] for x in ticked) or "unticked")
+        else:
+            lines = lambda t: (t.rstrip("\n") + "\n").splitlines(True) if t else []
+            e["text"] = clip("".join(list(difflib.unified_diff(lines(old), lines(new), n=1))[2:]), 3000)
+        put(f, e)
         write(p(".plan.prev"), new)
+
+
+def plan_view(plan, cap=CAP_PLAN):
+    """The plan as injected: Goal and Constraints whole, tasks and notes shortened first."""
+    if len(plan) <= cap:
+        return plan
+    plan = re.sub(r"(?m)^(\s*[-*] \[[xX]\] [^:\n]{1,60}?):.+$", r"\1: done", plan)  # a done task's file list is history
+    secs = [s.rstrip("\n").split("\n") for s in re.split(r"(?m)^(?=#)", plan) if s.strip()]
+    soft = [s for s in secs if not PROTECTED.search(s[0])]
+    size = lambda: sum(len(x) + 1 for s in secs for x in s) + len(secs)
+    for s in soft:
+        if size() > cap:
+            s[1:] = [x if len(x) <= 100 else x[:99] + "…" for x in s[1:]]
+    cut = False
+    while size() > cap - 60 and any(len(s) > 1 for s in soft):
+        max((s for s in soft if len(s) > 1), key=lambda s: sum(map(len, s))).pop()
+        cut = True
+    out = "\n\n".join("\n".join(s).strip("\n") for s in secs)
+    return clip(out + ("\n… (trimmed; full plan: .lucid/plan.md)" if cut else ""), cap, "… (full plan: .lucid/plan.md)")
 
 
 def fold(es):
@@ -261,27 +345,47 @@ def covers(glob, path):
 
 
 def stale(e):
-    hashes = e.get("hashes")
+    hashes, anchors = e.get("hashes"), e.get("anchors")
+    if isinstance(anchors, list) and any(isinstance(a, list) and len(a) == 3 and isinstance(a[0], str) and isinstance(a[1], int)
+                                         and not anchored(a[0], a[1], str(a[2])) for a in anchors):
+        return True
     return isinstance(hashes, dict) and any(fhash(os.path.join(ROOT, f)) != h for f, h in hashes.items())
 
 
-def fmt(e):
+def fmt(e, short=False):
     if e["kind"] == "plan":
+        if e.get("progress"):
+            return "#%d progress (%s): %s" % (e["id"], e["agent"], e["text"])
         return "#%d PLAN CHANGED by %s:\n%s" % (e["id"], e["agent"], e["text"].rstrip())
+    globs = [g for g in e.get("globs") or [] if isinstance(g, str)]
+    if short and e["kind"] == "claim" and len(globs) > 2:  # field run: one claim note ran to 774 chars of globs
+        try:
+            under = os.path.commonpath([re.split(r"[*?\[]", g)[0].rstrip("/") or "." for g in globs])
+        except ValueError:
+            under = ""
+        task = str(e.get("task") or "")
+        return "#%d claim (%s): %d paths%s%s" % (e["id"], e["agent"], len(globs), " under %s/" % under if under not in ("", ".") else "",
+                                                 " (%s)" % task if task else "")
     ev = e.get("evidence")
     ev = " [%s]" % ", ".join(map(str, ev)) if isinstance(ev, list) and ev else ""
-    return "#%d %s (%s): %s%s%s" % (e["id"], e["kind"], e["agent"], e["text"], ev, " ⚠stale" if stale(e) else "")
+    who_ = e["agent"] + (", reader" if e.get("reader") else "")
+    return "#%d %s (%s): %s%s%s" % (e["id"], e["kind"], who_, e["text"], ev, " ⚠stale" if stale(e) else "")
 
 
 def digest(me):
     es, off = entries(0)
     dead, claims, last = fold(es)
+    how = ("Log what other agents must not rediscover: `lucid note decision|fact|failed|blocker \"...\" -e path:line`. "
+           "Claim files before editing: `lucid claim 'glob' --for \"task\"`.")
+    if not me.startswith("main-"):  # field run: /code-review agents inherited the hooks and filed unverified "facts"
+        how = ("Building part of the plan (your brief said to `lucid claim`)? Claim files before editing, and log what other "
+               "agents must not rediscover: `lucid note decision|fact|failed|blocker \"...\" -e path:line`. Reviewing, researching "
+               "or answering a question? Read this, but don't write to the log: report to whoever asked you.")
     out = ["[lucid] Shared dream of this project (.lucid/). You are `%s`; your id is added to your `lucid` commands automatically.\n"
-           "Log what other agents must not rediscover: `lucid note decision|fact|failed|blocker \"...\" -e path:line`. "
-           "Claim files before editing: `lucid claim 'glob' --for \"task\"`. ⚠stale = cited code changed since; re-verify it." % me]
+           "%s ⚠stale = cited code changed since; re-verify it." % (me, how)]
     plan = read(p("plan.md")).strip()
     if plan and plan != PLAN_TEMPLATE.strip():
-        out.append("## Plan (.lucid/plan.md)\n" + clip(plan, 2500))
+        out.append("## Plan (.lucid/plan.md)\n" + plan_view(plan))
     dg = read(p("digest.md"))
     m = re.match(r"<!-- lucid:upto=(\d+) -->\n?", dg)
     upto = int(m.group(1)) if m else 0
@@ -293,6 +397,8 @@ def digest(me):
     cands = [e for e in es if e["kind"] in KINDS and e["id"] > upto and e["id"] not in dead]
     budget, kept = CAP_DIGEST - sum(len(x) for x in out), []
     for e in reversed(cands):  # newest first, format lazily: old entries never get hashed
+        if e.get("reader") and stale(e):
+            continue  # an unverified outsider note whose code has moved on: noise
         line = fmt(e)
         if len(line) + 1 > budget:
             break
@@ -311,13 +417,13 @@ def delta(me, st):
         ctx, st["cursor"] = digest(me)
     else:
         es, st["cursor"] = entries(st["cursor"])
-        news = [e for e in es if e["agent"] != me]
+        news = [e for e in es if e["agent"] != me and e["kind"] != "release"]  # claims are checked live; releases are noise
         ctx = ""
         if news:
             more = "… run `lucid log --since %d`" % (news[0]["id"] - 1)
             ctx = "[lucid] %d update(s) from other agents since you last looked:\n%s" % (
-                len(news), clip("\n".join(map(fmt, news)), CAP_DELTA, more))
-            if any(e["kind"] == "plan" for e in news):  # e2e: a worker obeyed its stale brief over a plan change
+                len(news), clip("\n".join(fmt(e, short=True) for e in news), CAP_DELTA, more))
+            if any(e["kind"] == "plan" and not e.get("progress") for e in news):  # e2e: a worker obeyed its stale brief over a plan change
                 ctx += ("\n↳ .lucid/plan.md is the user's latest intent and overrides your original brief. If the change "
                         "touches files you own or claimed, apply it now and log a decision; otherwise carry on.")
     save_state(me, st)
@@ -335,19 +441,61 @@ def emit(event, ctx, **extra):
     return 0
 
 
-def claim_conflict(me, target):
+def live_claims(es):
+    """{agent: {glob: task}} for agents whose claims still hold."""
+    _, claims, last = fold(es)
+    return {o: gs for o, gs in claims.items() if gs and alive(o, last)}
+
+
+def claim_conflict(me, target, live):
     if same(target, p("log.jsonl")):
         return "lucid: log.jsonl is append-only; use `lucid note|supersede`."
     path = rel(target)
-    es, _ = entries(0)
-    _, claims, last = fold(es)
-    for owner, gs in claims.items():
-        if owner != me and alive(owner, last):
+    for owner, gs in live.items():
+        if owner != me:
             for g, task in gs.items():
                 if covers(g, path):
                     return ("lucid: `%s` is claimed by `%s` (%s%s). Work on something else, or coordinate: "
                             "`lucid note blocker \"...\"` / SendMessage." % (path, owner, g, ": " + task if task else ""))
     return None
+
+
+def stray_check(me):
+    """After a Bash call in a swarm: files it changed that no live claim covers -> (message, alarm) or None.
+    Field run: `oxfmt` with an empty file list rewrote 675 files inside a claimed swarm, and only a human noticed."""
+    snap = p(".state/%s.dirty.json" % me)
+    try:
+        with open(snap, encoding="utf-8") as f:
+            before = json.load(f)
+        os.remove(snap)
+    except (OSError, ValueError):
+        return None
+    now = git_dirty()
+    if not isinstance(before, dict) or now is None:
+        return None
+    # ponytail: a file another agent writes during this call is blamed on this one (claims filter most of those), and
+    # re-touching an already-dirty file without moving its mtime goes unseen. Per-agent write tracing would fix both.
+    changed = [f for f, (xy, mt) in now.items() if not f.startswith(".lucid/") and (
+        f not in before or (xy != "??" and isinstance(before[f], list) and before[f][1:] != [mt]))]
+    live = live_claims(entries(0)[0])
+    stray = sorted(f for f in changed if not any(covers(g, f) for gs in live.values() for g in gs))
+    if not stray:
+        return None
+    names = ", ".join(stray[:5]) + (" and %d more" % (len(stray) - 5) if len(stray) > 5 else "")
+    if len(stray) < STRAY_ALARM:
+        return ("lucid: that command changed %d file(s) outside your claim: %s. If they're yours to change, `lucid claim` "
+                "them; otherwise revert them." % (len(stray), names), False) if live.get(me) else None
+    clean = [f for f in stray if f not in before and now[f][0][0] == " "]  # clean before, now changed in the worktree only
+    undo = ""
+    if clean:  # restoring these from the index loses nothing: they had no uncommitted edits before this command
+        lst = p(".state/stray-%d.txt" % int(time.time() * 1000))
+        write(lst, "".join(":(literal)%s\n" % f for f in clean))  # literal: Next.js paths like [id]/ are globs otherwise
+        undo = (" Undo the %d that were clean before it, from the project root: `git restore --pathspec-from-file=%s`."
+                % (len(clean), os.path.relpath(lst, ROOT)))
+    e = append(agent=me, kind="blocker", text=(
+        "lucid guard: one Bash command by %s changed %d files outside every claim (%s).%s If it was meant (codegen, a "
+        "planned format), log a decision; otherwise stop and undo it." % (me, len(stray), names, undo)))
+    return "#%d %s" % (e["id"], e["text"]), True
 
 
 def hook(event):
@@ -362,51 +510,86 @@ def hook(event):
     if os.environ.get("LUCID_DEBUG"):
         with open(p(".debug.jsonl"), "a", encoding="utf-8") as f:
             f.write(json.dumps(dict(lucid_event=event, **inp)) + "\n")
+    if os.path.exists(p("ended")):  # `lucid end`: the swarm is over. Field run: 2.5 h of solo review rounds still got notes.
+        if event == "SessionStart":
+            return emit(event, "[lucid] %s `lucid status` shows its plan and log; `lucid init` starts a new swarm."
+                        % read(p("ended")).strip())
+        return 0
     me = who(inp)
     tool, ti = inp.get("tool_name", ""), inp.get("tool_input")
     ti = ti if isinstance(ti, dict) else {}
     target = str(ti.get("file_path") or ti.get("notebook_path") or "")
+    cwd = str(inp.get("cwd") or ROOT)
+    writes = bash_writes(str(ti.get("command", ""))) if tool == "Bash" else []
+    plan = p("plan.md")
+    edits_plan = bool(target and same(target, plan)) or any(same(os.path.join(cwd, os.path.expanduser(w)), plan) for w in writes)
 
     if event == "PostToolUse":
-        if target and same(target, p("plan.md")):
+        ctx = ""
+        if edits_plan:
             sync_plan(me)
-        return 0
-    # ponytail: an edit by another agent can land here before its PostToolUse and get tagged "user"; cosmetic only
-    sync_plan("user")  # plan edited outside Claude's tools (editor, sed, git checkout)
+            if len(read(plan)) > CAP_PLAN:
+                ctx = ("lucid: plan.md is %d chars, so agents get a trimmed view (tasks shortened first, Goal and Constraints "
+                       "whole). `lucid status` shows what they see." % len(read(plan)))
+        if tool == "Bash":
+            msg, alarm = stray_check(me) or ("", False)
+            if alarm:
+                sys.stderr.write(msg + "\n")
+                return 2
+            ctx = "\n".join(x for x in (ctx, msg) if x)
+        return emit(event, ctx)
+    sync_plan("user")  # plan edited outside Claude's tools (editor, git checkout)
     st = load_state(me)
 
     if event in ("SessionStart", "SubagentStart"):
         ctx, st["cursor"] = digest(me)
+        if event == "SubagentStart":
+            st["parent"] = who({"session_id": inp.get("session_id", "")})  # the lead that spawned it (Stop nudge)
         save_state(me, st)
         return emit(event, ctx)
     if event == "UserPromptSubmit":
         ctx = delta(me, st)
-        _, claims, last = fold(entries(0)[0])
-        busy = sorted(o for o, gs in claims.items() if o != me and gs and alive(o, last))
+        busy = sorted(o for o in live_claims(entries(0)[0]) if o != me)
+        ticks = re.findall(r"(?m)^\s*[-*] \[([ xX])\]", read(plan))
         if busy:  # e2e: leads relayed chat-only plan changes by message and skipped plan.md (1 of 3 recorded it)
             ctx = (ctx + "\n" if ctx else "") + (
                 "[lucid] %s still working. If this message changes the plan, edit .lucid/plan.md first (or /lucid:replan): "
                 "they get the diff before their next tool call, and it survives /compact." % ", ".join(busy))
+        elif ticks and all(t in "xX" for t in ticks) and not inp.get("agent_id") and not st.get("end_hinted"):
+            st["end_hinted"] = True
+            save_state(me, st)
+            ctx = (ctx + "\n" if ctx else "") + (
+                "[lucid] Every plan task is done and no other agent is working. If the swarm is over, `lucid end` stops "
+                "lucid's hooks here (plan and log stay).")
         return emit(event, ctx)
     if event == "PreToolUse":
         why, extra = None, {}
-        if tool == "Bash":
-            # Stamp the caller's real id on every `lucid` call (replacing a wrong --as), so agents never
-            # manage ids. No permissionDecision: normal permission rules still apply to the rewritten command.
-            # ponytail: a "; lucid" inside quoted text gets stamped too; cosmetic
-            cmd = str(ti.get("command", ""))
-            fixed = LUCID_CMD.sub(lambda m: m.group(1) + m.group(2) + "lucid --as " + me, cmd)
-            if fixed != cmd:
-                extra["updatedInput"] = dict(ti, command=fixed)
-            writes = bash_writes(cmd)
-            for w in writes:
-                why = claim_conflict(me, os.path.join(str(inp.get("cwd") or ROOT), os.path.expanduser(w)))
-                if why:
-                    break
-            st["edited"] = st.get("edited") or (bool(writes) and not why)
-        elif tool in EDIT_TOOLS and target:
-            why = claim_conflict(me, target)
-            st["edited"] = st.get("edited") or not why
+        if tool == "Bash" or (tool in EDIT_TOOLS and target):
+            live = live_claims(entries(0)[0])
+            if tool == "Bash":
+                # Stamp the caller's real id on every `lucid` call (replacing a wrong --as), so agents never
+                # manage ids. No permissionDecision: normal permission rules still apply to the rewritten command.
+                # ponytail: a "; lucid" inside quoted text gets stamped too; cosmetic
+                cmd = str(ti.get("command", ""))
+                fixed = LUCID_CMD.sub(lambda m: m.group(1) + m.group(2) + "lucid --as " + me, cmd)
+                if fixed != cmd:
+                    extra["updatedInput"] = dict(ti, command=fixed)
+                for w in writes:
+                    why = claim_conflict(me, os.path.join(cwd, os.path.expanduser(w)), live)
+                    if why:
+                        break
+                st["edited"] = st.get("edited") or (bool(writes) and not why)
+                snap = p(".state/%s.dirty.json" % me)
+                dirty = git_dirty() if live and not why else None  # ~100 ms at 12k files; only while a swarm holds claims
+                if dirty is not None:
+                    write(snap, json.dumps(dirty))
+                elif os.path.exists(snap):
+                    os.remove(snap)
+            else:
+                why = claim_conflict(me, target, live)
+                st["edited"] = st.get("edited") or not why
+            if edits_plan and not why:  # so a racing hook credits this agent, not "user"
+                write(p(".state/plan-editor"), me)
         ctx = delta(me, st)
         if why:
             return emit(event, ctx, permissionDecision="deny", permissionDecisionReason=why)
@@ -424,6 +607,19 @@ def hook(event):
             return 2
         if event == "SubagentStop" and fold(mine)[1].get(me):
             append(agent=me, kind="release", globs=[], text="all (agent stopped)")
+    if event == "Stop" and not inp.get("agent_id") and not inp.get("stop_hook_active"):
+        # Field run: a worker's blocker sat 19 min because the lead had gone idle. A background `lucid wait` wakes it.
+        workers = sorted(o for o in live_claims(entries(0)[0]) if o != me and load_state(o).get("parent") == me)
+        try:
+            waiting = time.time() - os.path.getmtime(p(".state/%s.wait" % me)) < 15
+        except OSError:
+            waiting = False
+        if workers and not waiting and not set(workers) <= set(st.get("nudged") or []):
+            st["nudged"] = sorted(set(workers) | set(st.get("nudged") or []))
+            save_state(me, st)
+            sys.stderr.write("lucid: %s still working. Before ending your turn, run `lucid wait` with run_in_background: "
+                             "it returns (and wakes you) when a worker logs a blocker or a stray-write alarm.\n" % ", ".join(workers))
+            return 2
     # A session between turns isn't editing: release its claims. Bench: an ended session's claim blocked the next
     # session for the whole TTL; live: split-pane teammates (separate sessions) sat idle holding claims.
     if event in ("Stop", "SessionEnd") and not inp.get("agent_id"):
@@ -452,11 +648,23 @@ def cli(argv):
     s.add_argument("--why", default="")
     sub.add_parser("log", help="print entries").add_argument("--since", type=int, default=0)
     sub.add_parser("status", help="print the digest agents get")
+    sub.add_parser("wait", help="block until another agent logs a blocker or dead end (run it in the background)"
+                   ).add_argument("--timeout", type=int, default=1800)
+    sub.add_parser("end", help="end the swarm: hooks go quiet, plan and log stay")
     a = ap.parse_args(argv)
     me = re.sub(r"[^\w.-]", "_", a.me) or "human"
     setup(os.getcwd())
 
     if a.cmd == "init":
+        if os.path.exists(p("ended")):  # a new swarm: shelve the finished one so its log doesn't leak into the next feature
+            arch = p("archive/" + time.strftime("%Y-%m-%d-%H%M%S"))
+            os.makedirs(arch, exist_ok=True)
+            for n in ("plan.md", "log.jsonl", "digest.md", "ended"):
+                if os.path.exists(p(n)):
+                    os.replace(p(n), os.path.join(arch, n))
+            if os.path.exists(p(".plan.prev")):
+                os.remove(p(".plan.prev"))
+            print("lucid: archived the ended swarm to %s" % os.path.relpath(arch, ROOT))
         os.makedirs(p(".state"), exist_ok=True)
         if not os.path.exists(p("plan.md")):
             write(p("plan.md"), PLAN_TEMPLATE)
@@ -471,15 +679,29 @@ def cli(argv):
     sync_plan("user")
 
     if a.cmd == "note":
-        ev, hashes = [], {}
+        ev, hashes, anchors = [], {}, []
         for x in a.evidence:
-            m = re.match(r"(.*?)(:\d+(?:-\d+)?)?$", x)
-            if os.path.isfile(m.group(1)):
-                ev.append(rel(m.group(1)) + (m.group(2) or ""))
-                hashes[rel(m.group(1))] = fhash(os.path.realpath(m.group(1)))
-            else:
+            m = re.match(r"(.*?)(?::(\d+)(?:-(\d+))?)?$", x)
+            path = m.group(1)
+            if not os.path.isfile(path):
                 ev.append(x)
-        print("#%d logged" % append(agent=me, kind=a.kind, text=a.text, evidence=ev, hashes=hashes)["id"])
+                continue
+            r, lines, lo = rel(path), file_lines(os.path.realpath(path)), int(m.group(2) or 0)
+            ev.append(r + x[len(path):])
+            if lo and lines and lo <= len(lines):  # anchor the cited lines +-2, so an edit elsewhere in the file isn't "stale"
+                win = lines[max(lo - 3, 0):min(max(int(m.group(3) or lo), lo) + 2, len(lines))]
+                anchors.append([r, len(win), win_sha(win)])
+            else:
+                hashes[r] = fhash(os.path.realpath(path))
+        extra = {"anchors": anchors} if anchors else {}
+        if me.startswith("ag-") and not load_state(me).get("edited") and not any(
+                e["agent"] == me and e["kind"] == "claim" for e in entries(0)[0]):
+            extra["reader"] = True  # never claimed or edited: a reviewer or researcher, not a swarm worker
+        e = append(agent=me, kind=a.kind, text=a.text, evidence=ev, hashes=hashes, **extra)
+        print("#%d logged" % e["id"])
+        refs = sorted({int(n) for n in re.findall(r"#(\d+)\b", a.text) if int(n) < e["id"]})
+        if refs:  # field run: #54 corrected #47, nobody retired #47, and both kept reading as facts
+            print("If this replaces %s: `lucid supersede %s --why \"...\"`" % (", ".join("#%d" % n for n in refs), " ".join(map(str, refs))))
     elif a.cmd == "claim":
         globs = [norm_glob(g) for g in a.globs]
         es, _ = entries(0)
@@ -508,6 +730,37 @@ def cli(argv):
         print("last id: %d" % (es[-1]["id"] if es else 0))
     elif a.cmd == "status":
         print(digest(me)[0])
+    elif a.cmd == "wait":
+        # The lead runs this in the background: Claude Code wakes it when the command exits.
+        off, start = entries(0)[1], time.time()
+        busy = start
+        while time.time() - start < a.timeout:
+            write(p(".state/%s.wait" % me), "")  # heartbeat: the Stop nudge stays quiet while someone listens
+            off = 0 if off > log_size() else off  # log reset
+            es, off = entries(off)
+            hits = [e for e in es if e["agent"] != me and e["kind"] in ("blocker", "failed")]
+            if hits:
+                print("\n".join(map(fmt, hits)))
+                return print("lucid: act on this, then run `lucid wait` in the background again.")
+            try:
+                beats = [x.stat().st_mtime for x in os.scandir(p(".state")) if x.name.endswith(".json")
+                         and not x.name.endswith(".dirty.json") and x.name != me + ".json"]
+            except OSError:
+                beats = []
+            if any(time.time() - t < 300 for t in beats):
+                busy = time.time()
+            elif time.time() - busy > 300:
+                return print("lucid: no other agent has been active for 5 min; stopped waiting.")
+            time.sleep(2)
+        print("lucid: no blockers in %d min. Run `lucid wait` again to keep listening." % (a.timeout // 60))
+    elif a.cmd == "end":
+        m = re.search(r"(?m)^## Goal[^\n]*\n+([^\n#][^\n]*)", read(p("plan.md")))
+        goal = m.group(1).strip() if m else "this project"
+        text = 'The swarm for "%s" ended %s.' % (goal[:80] + ("…" if len(goal) > 80 else ""), time.strftime("%Y-%m-%d"))
+        append(agent=me, kind="end", text=text)
+        write(p("ended"), text + "\n")
+        print("lucid: ended. Hooks stay quiet here now; the plan and log are kept. `lucid init` archives them and starts "
+              "a new swarm; `rm .lucid/ended` resumes this one.")
 
 
 if __name__ == "__main__":

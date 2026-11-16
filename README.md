@@ -247,6 +247,8 @@ lucid claim 'src/db/**' --for "migrations"     # release when done
 lucid supersede 12 --why "switched to sessions"
 lucid status        # the digest agents see
 lucid log --since 40
+lucid wait          # the lead runs this in the background: it returns when a worker logs a blocker
+lucid end           # the swarm is done: hooks go quiet, plan and log stay (`lucid init` archives them)
 ```
 
 > 💡 For parallel **full** Claude instances, enable Claude Code's Agent Teams with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. lucid doesn't spawn agents itself; it keeps the ones Claude Code spawns in sync.
@@ -276,12 +278,33 @@ These runs uncovered three bugs, all fixed:
 - One worker obeyed its stale brief over the plan change, so plan changes now state that they override the original brief.
 - A teammate edited through a Python heredoc in Bash, which skipped claims and the stop gate. File writes made through Bash are now checked too.
 
+**A real feature in a private 12k-file monorepo.** A lead and three workers built role-based access across the schema, services, API, MCP server and UI: 136 files, built in parallel in 35 minutes. Two things carried it:
+- The lead logged six contract decisions before spawning anyone. None of the six bugs the later review found sat on a seam between two workers.
+- When one worker reformatted the whole repo by accident, a single STOP line in `plan.md` reached the other two before their next tool call.
+
+The run also showed where lucid fell short. Version 0.4 fixes each of these:
+- **Claims didn't notice the repo-wide format.** A formatter run with an empty file list touched 675 files, and only a human caught it. Now each Bash call in a swarm is compared against `git status`. If one command changes many unclaimed files, that raises a blocker carrying a one-command `git restore`. The restore only touches files that had no uncommitted edits.
+- **A worker's blocker waited 19 minutes** because the lead had gone idle. The lead now runs `lucid wait` in the background, which wakes it when a blocker arrives.
+- **Review agents filed unverified findings as facts.** Agents that only read are now told not to write. Their notes are tagged `reader` and drop out once the code they cite changes.
+- **The plan was cut off mid-Constraints.** Long plans now lose task file lists first. Goal and Constraints always come through whole.
+- **⚠stale fired on edits hundreds of lines away.** It now tracks the cited lines, not the whole file.
+- **Checkbox ticks made with `sed` were credited to the user** and read as new orders. They're now credited to the agent that made them and shown as progress.
+- **After the build, 2.5 hours of solo review rounds still got notes.** `lucid end` turns the hooks off.
+
+## 🧭 When to use it
+
+**Use it for:** three or more agents building at once; work that splits cleanly by file; interfaces you can decide before spawning anyone; a plan likely to change mid-build.
+
+**Skip it for:** one agent working through review comments; agents that only read or review; tasks where writing the plan costs more than it saves.
+
+lucid makes the parts fit together. It doesn't make them correct, so keep the review step.
+
 ## 🧪 Honest limits
 
 - **More agents still means more tokens.** lucid cuts repeated exploration and re-explaining, not the cost of running each instance.
 - **Parallelism helps decoupled work.** Keep tightly coupled changes with a single agent; `/lucid:swarm` says so too.
 - **Single agent across sessions:** Claude Code's built-in auto-memory already carries a policy into the next session, and the benchmark shows parity there. lucid earns its keep when **several agents work at once**.
-- **Bash write detection is a heuristic.** It catches redirects, `tee`, `cp`/`mv`/`rm`, `sed -i` and Python writes, but not every way a program can write a file.
+- **Bash write detection is a heuristic.** It catches redirects, `tee`, `cp`/`mv`/`rm`, `sed -i` and Python writes, but not every way a program can write a file. During a swarm, a `git status` taken before and after each Bash call catches the rest after the fact. That adds about 0.2 s per Bash call on a 12k-file repo, and only while a swarm holds claims. If another agent writes during that window, the write may be blamed on the caller.
 - **POSIX only** (macOS and Linux), because the log uses `flock` for locking.
 
 ## ⚙️ Configuration
@@ -289,6 +312,7 @@ These runs uncovered three bugs, all fixed:
 | Variable | Default | Meaning |
 |---|---|---|
 | `LUCID_CLAIM_TTL` | `1200` | Seconds without activity from a claim's owner before the claim lapses. |
+| `LUCID_STRAY_ALARM` | `20` | Unclaimed files that one Bash command may change before lucid raises a blocker for everyone. |
 | `LUCID_ROOT` | project dir | Where `.lucid/` lives, for worktrees outside the repo. |
 | `LUCID_DEBUG` | unset | `1` logs every hook input to `.lucid/.debug.jsonl`. |
 

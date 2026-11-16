@@ -5,6 +5,17 @@ export const metadata = docMetadata("/docs/limits");
 
 const FAQ = [
   {
+    id: "when",
+    q: "When should I use it, and when not?",
+    a: (
+      <>
+        Use it when three or more agents build at once, the work splits cleanly by file, you can decide the interfaces
+        before spawning anyone, and the plan is likely to change. Skip it for one agent working through review comments,
+        for agents that only read or review, and for tasks where writing the plan costs more than it saves.
+      </>
+    ),
+  },
+  {
     id: "spawn",
     q: "Does lucid spawn agents?",
     a: (
@@ -126,7 +137,14 @@ export default function Limits() {
         <li>
           <strong>Bash write detection is a heuristic.</strong> It catches redirects, <code>tee</code>,{" "}
           <code>cp</code>/<code>mv</code>/<code>rm</code>, <code>sed -i</code> and Python writes, but not every way a
-          program can write a file.
+          program can write a file. During a swarm, a <code>git status</code> taken before and after each Bash call
+          catches the rest after the fact. That adds about 0.2 s per Bash call on a 12k-file repo. If another agent writes
+          during that window, the write may be blamed on the caller.
+        </li>
+        <li>
+          <strong>lucid makes the parts fit together, not correct.</strong> In a real feature, contracts settled up front
+          kept every review finding off the seams between workers, but the review still found real bugs. Keep the review
+          step.
         </li>
         <li>
           <strong>POSIX only</strong> (macOS and Linux), because the log uses <code>flock</code> for locking.

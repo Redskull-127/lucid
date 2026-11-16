@@ -22,7 +22,9 @@ lucid [--as ME] claim GLOB [GLOB ...] [--for TASK]
 lucid [--as ME] release [GLOB ...]
 lucid [--as ME] supersede ID [ID ...] [--why WHY]
 lucid [--as ME] log [--since SINCE]
-lucid [--as ME] status`}
+lucid [--as ME] status
+lucid [--as ME] wait [--timeout SECONDS]
+lucid [--as ME] end`}
       />
       <p>
         Every command accepts <code>-h</code> / <code>--help</code>. Commands other than <code>init</code> need a{" "}
@@ -137,6 +139,25 @@ lucid release 'src/db/**'     # just this one`} />
         Prints the digest agents get when they start: the plan, the consolidated digest if <code>/lucid:dream</code> has
         written one, active claims, and the newest log entries that fit the budget. Use it to see exactly what a new
         agent would see.
+      </p>
+
+      <H2 id="wait">wait</H2>
+      <CodeBlock lang="text" copy={false} code={`lucid wait [--timeout SECONDS]`} />
+      <p>
+        Blocks until another agent logs a <code>blocker</code> or <code>failed</code> entry, then prints it and exits.
+        This includes the alarm lucid raises when one command changes many unclaimed files. The lead runs it in the
+        background while workers run. Claude Code wakes the lead when the command exits, so a worker’s question doesn’t
+        wait for the lead’s next turn. It also stops after 5 minutes with no other agent active, or at the timeout
+        (default 1800 seconds). If the lead tries to end its turn while its workers still hold claims and nothing is
+        waiting, lucid reminds it once.
+      </p>
+
+      <H2 id="end">end</H2>
+      <CodeBlock lang="text" copy={false} code={`lucid end`} />
+      <p>
+        Ends the swarm. From then on, hooks only add one line at session start pointing at the old plan and log, so solo
+        work afterwards doesn’t pay for coordination nobody needs. The next <code>lucid init</code> moves the plan and log
+        to <code>.lucid/archive/</code> and starts fresh; <code>rm .lucid/ended</code> resumes the old swarm instead.
       </p>
 
       <Callout>

@@ -23,6 +23,11 @@ export default function Configuration() {
             "Seconds without activity from a claim’s owner before the claim lapses.",
           ],
           [
+            <code key="4">LUCID_STRAY_ALARM</code>,
+            <code key="4d">20</code>,
+            "Unclaimed files that one Bash command may change before lucid raises a blocker for everyone.",
+          ],
+          [
             <code key="2">LUCID_ROOT</code>,
             "project dir",
             <>

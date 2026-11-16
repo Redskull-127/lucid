@@ -68,6 +68,7 @@ for ag in (A, B, C):
     assert "build auth" in pr.ctx("SubagentStart", **ag)
 
 pr.put("auth.py", "x = 1\n")
+pr.edit(A, "auth.py")                                            # a worker (it edits), not a reader
 jwt = pr.cli("--as", a, "note", "decision", "use JWT", "-e", "auth.py:1").stdout.split()[0].lstrip("#")
 assert "use JWT" in pr.ctx("UserPromptSubmit")
 assert pr.ctx("UserPromptSubmit") == ""                          # delivered exactly once
@@ -129,7 +130,7 @@ assert pr.hook("SubagentStop", **D)[0] == 0                     # ...has reporte
 
 pr.put("auth.py", "x = 2\n")
 s = pr.cli("--as", main, "status").stdout
-assert "use JWT" in s and "⚠stale" in s, s
+assert "use JWT" in s and "auth.py:1] ⚠stale" in s, s
 pr.cli("--as", main, "supersede", jwt, "--why", "switched to sessions")
 assert "use JWT" not in pr.cli("--as", main, "status").stdout
 pr.cli("--as", b, "note", "failed", "bcrypt native build breaks on node 24")
@@ -262,6 +263,152 @@ r = subprocess.run([sys.executable, LUCID, "hook", "PreToolUse"], input="not jso
 assert r.returncode == 0, r.stderr
 assert open(pc.path(".lucid/.gitattributes")).read() == "log.jsonl merge=union\n"
 print("edge cases ok")
+
+# ======================= field run fixes (0.4) =======================
+peek = lambda proj, ag: proj.ctx("PreToolUse", **read_tool, **ag)
+git = lambda proj, *args: subprocess.run(GIT + list(args), cwd=proj.root, capture_output=True, text=True).stdout
+
+# stray writes: a formatter run with an empty file list rewrote 675 files inside a claimed swarm
+ps = Project()
+git(ps, "init", "-q")
+for k in range(25):
+    ps.put("app/[id]/f%d.ts" % k, "x\n")                         # Next.js-style brackets: must restore literally
+ps.put("mine/a.py", "a\n")
+ps.put("keep.py", "k\n")
+git(ps, "add", "-A")
+git(ps, "commit", "-qm", "init")
+ps.put("keep.py", "uncommitted work\n")                          # dirty before the command: never restored
+
+
+def bash_run(proj, ag, effect, cmd="node_modules/.bin/oxfmt"):
+    proj.hook("PreToolUse", tool_name="Bash", tool_input={"command": cmd}, **ag)
+    effect()
+    return proj.hook("PostToolUse", tool_name="Bash", tool_input={"command": cmd}, **ag)
+
+
+def reformat(proj, files):
+    return lambda: [proj.put(f, open(proj.path(f)).read() + "// formatted\n") for f in files]
+
+
+lib = ["app/[id]/f%d.ts" % k for k in range(25)]
+assert bash_run(ps, B, reformat(ps, lib[:1])) == (0, {})         # no claims anywhere: no swarm, no git call
+git(ps, "checkout", "--", lib[0])
+ps.hook("SubagentStart", **A)
+ps.hook("SubagentStart", **B)
+assert ps.cli("--as", a, "claim", "mine/**").returncode == 0
+code, _ = bash_run(ps, A, reformat(ps, lib + ["keep.py", "mine/a.py"]))
+assert code == 2                                                 # the alarm goes to the agent that ran it...
+s = peek(ps, B)
+assert "lucid guard" in s and "26 files outside every claim" in s, s   # ...and to everyone else as a blocker
+undo = s.split("`git restore --pathspec-from-file=")[1].split("`")[0]
+assert "keep.py" not in open(ps.path(undo)).read() and "mine/a.py" not in open(ps.path(undo)).read()
+subprocess.run(["git", "restore", "--pathspec-from-file=" + undo], cwd=ps.root, check=True)
+assert not [f for f in lib if open(ps.path(f)).read() != "x\n"]  # one command undid all 25
+assert open(ps.path("keep.py")).read().startswith("uncommitted work")  # uncommitted edits survive the undo
+_, out = bash_run(ps, A, reformat(ps, ["keep.py"]))
+assert "outside your claim: keep.py" in out.get("additionalContext", ""), out   # a few files: a quiet word, no blocker
+assert bash_run(ps, {}, reformat(ps, ["keep.py"])) == (0, {})   # the lead holds no claims: free to edit
+assert "lucid guard" not in peek(ps, B)
+
+# plan ticks via sed (how the field-run lead did it) are credited to the agent and read as progress, not orders
+pa = Project()
+pa.put(".lucid/plan.md", "# Plan\n\n## Goal\nship\n\n## Tasks\n- [ ] api: src/api/**\n- [ ] ui: src/ui/**\n")
+pa.hook("SessionStart")
+pa.hook("SubagentStart", **B)
+tick = "sed -i '' 's/^- \\[ \\] api:/- [x] api:/' .lucid/plan.md && grep -n x .lucid/plan.md"
+pa.hook("PreToolUse", tool_name="Bash", tool_input={"command": tick})
+pa.put(".lucid/plan.md", open(pa.path(".lucid/plan.md")).read().replace("- [ ] api:", "- [x] api:"))
+s = peek(pa, B)                                                  # a worker's hook races the lead's PostToolUse
+assert "progress (%s): [x] api" % main in s and "overrides" not in s and "user" not in s, s
+pa.hook("PreToolUse", tool_name="Edit", tool_input={"file_path": pa.path(".lucid/plan.md")}, **A)
+pa.put(".lucid/plan.md", open(pa.path(".lucid/plan.md")).read() + "- [ ] cache: src/cache/**\n")
+s = peek(pa, B)
+assert "PLAN CHANGED by " + a in s and "overrides your original brief" in s, s
+
+# the injected plan keeps Goal and Constraints whole and shortens tasks first
+globs = ", ".join("packages/service-%d/src/feature/**" % k for k in range(14))
+big = ("# Plan\n\n## Goal\nRole-based access to connectors.\n\n## Shared decisions (lead)\n" + "decided: x\n" * 10 +
+       "\n## Tasks (one owner per file set)\n" + "".join("- [ ] w%d: %s\n" % (k, globs) for k in range(5)) +
+       "\n## Constraints / non-goals\n- No new deps.\n- Format exact files only.\n- Never call eval() on tool input.\n")
+assert len(big) > mod.CAP_PLAN
+for text in (big, big.replace("- [ ]", "- [x]")):
+    v = mod.plan_view(text)
+    assert len(v) <= mod.CAP_PLAN and "Never call eval() on tool input." in v and "Role-based access" in v, v
+assert "- [x] w0: done" in mod.plan_view(big.replace("- [ ]", "- [x]"))
+pa.hook("PreToolUse", tool_name="Write", tool_input={"file_path": pa.path(".lucid/plan.md")})
+pa.put(".lucid/plan.md", big)
+r = pa.hook("PostToolUse", tool_name="Write", tool_input={"file_path": pa.path(".lucid/plan.md")})[1]
+assert "agents get a trimmed view" in r.get("additionalContext", ""), r
+
+# staleness follows the cited lines, not the whole file
+pt = Project()
+body = "".join("line %d\n" % k for k in range(1, 101))
+pt.put("svc.py", body)
+pt.cli("--as", main, "note", "fact", "line 50 matters", "-e", "svc.py:50")
+pt.put("svc.py", "# new header\n" * 3 + body.replace("line 90\n", "line 90 edited\n"))
+assert "svc.py:50]" in pt.cli("--as", main, "status").stdout and "svc.py:50] ⚠stale" not in pt.cli("status").stdout  # moved, edited 40 lines away: still true
+pt.put("svc.py", body.replace("line 50\n", "line 50 changed\n"))
+assert "svc.py:50] ⚠stale" in pt.cli("--as", main, "status").stdout
+
+# agents that only read (reviewers) are told not to write; their notes are tagged and fade once stale
+R = {"agent_id": "agent-review", "agent_type": "general-purpose"}
+r_ = mod.who(R)
+assert "don't write to the log" in pt.ctx("SubagentStart", **R) and "don't write" not in pt.ctx("SessionStart")
+pt.put("api.py", "def f(): pass\n")
+pt.cli("--as", r_, "note", "fact", "Review, not verified: f leaks", "-e", "api.py:1")
+assert "%s, reader" % r_ in pt.cli("log").stdout and "f leaks" in pt.cli("status").stdout
+out = pt.cli("--as", main, "note", "fact", "#2 was wrong", "-e", "api.py:1").stdout
+assert "lucid supersede 2" in out, out
+pt.put("api.py", "def f(): return 1\n")
+s = pt.cli("status").stdout
+assert "f leaks" not in s and "#2 was wrong" in s, s             # the stale outsider note fades; the worker's stays
+
+# lucid wait: wakes the idle lead on another agent's blocker, ignoring everything else
+pq = Project()
+pq.hook("SubagentStart", **A)
+w = subprocess.Popen([sys.executable, LUCID, "--as", main, "wait", "--timeout", "20"], cwd=pq.root, env=BASE_ENV,
+                     stdout=subprocess.PIPE, text=True)
+time.sleep(0.5)
+pq.cli("--as", a, "note", "fact", "just a fact")
+pq.cli("--as", main, "note", "blocker", "my own blocker")
+pq.cli("--as", a, "note", "blocker", "need the row type")
+out = w.communicate(timeout=15)[0]
+assert "need the row type" in out and "just a fact" not in out and "my own" not in out, out
+
+# Stop nudge: a lead going idle while its workers hold claims is told to arm `lucid wait`, once
+assert pq.cli("--as", a, "claim", "x.py").returncode == 0
+assert pq.hook("Stop")[0] == 0                                   # a waiter is listening (fresh heartbeat)
+os.utime(pq.path(".lucid/.state/%s.wait" % main), (0, 0))
+assert pq.hook("Stop")[0] == 2 and pq.hook("Stop")[0] == 0       # nudged once per worker set
+pq.hook("SubagentStart", **dict(C, session_id="S9"))             # someone else's worker: not this lead's business
+pq.cli("--as", c, "claim", "y.py")
+assert pq.hook("Stop")[0] == 0
+
+# deltas: long claims summarized, releases dropped
+pd = Project()
+pd.hook("SubagentStart", **B)
+peek(pd, B)
+pd.cli("--as", a, "claim", *["src/api/m%d/**" % k for k in range(8)], "--for", "api")
+s = peek(pd, B)
+assert "8 paths under src/api/ (api)" in s and "m7" not in s, s
+pd.cli("--as", a, "release")
+assert peek(pd, B) == ""
+
+# all tasks done, nobody working: one hint to end; `end` silences the hooks; `init` archives for the next swarm
+pe = Project()
+pe.put(".lucid/plan.md", "# Plan\n\n## Goal\nship billing v2\n\n## Tasks\n- [x] api: src/**\n")
+pe.hook("SessionStart")
+assert "lucid end" in pe.ctx("UserPromptSubmit") and "lucid end" not in pe.ctx("UserPromptSubmit")
+pe.cli("--as", a, "note", "decision", "billing uses cents")
+assert "ended" in pe.cli("end").stdout
+s = pe.ctx("SessionStart")
+assert "ship billing v2" in s and "billing uses cents" not in s, s
+assert pe.hook("PreToolUse", **read_tool, **B) == (0, {}) and pe.edit(B, "src/x.py") == {}
+assert "archived" in pe.cli("init").stdout
+assert "billing uses cents" not in pe.cli("status").stdout and not os.path.exists(pe.path(".lucid/ended"))
+arch = os.path.join(pe.path(".lucid/archive"), os.listdir(pe.path(".lucid/archive"))[0])
+assert "billing uses cents" in open(os.path.join(arch, "log.jsonl")).read()
+print("field run fixes ok")
 
 # ======================= performance (10k-entry log) =======================
 pp = Project()
