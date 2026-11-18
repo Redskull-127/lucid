@@ -1,7 +1,7 @@
 {
   "name": "lucid",
   "displayName": "Lucid",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "One shared dream per feature for every Claude agent: a live plan, an evidence-backed decision/dead-end log and file claims, shared by the feature's worktrees, stacked branches and agents, and consolidated into team rules (.claude/rules/) when it merges. Team rules are checked on every edit and learned from corrections and PR reviews.",
   "author": {
     "name": "Meer Tarbani",

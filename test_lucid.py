@@ -388,6 +388,18 @@ t0 = time.time()
 assert pz.hook("SubagentStop", **A)[0] == 0
 out = w.communicate(timeout=15)[0]
 assert "all your workers have stopped" in out and time.time() - t0 < 5, out
+# ...even when one of them started but never stopped: no claim, silent past LUCID_IDLE_WORKER (0.6 bench: a 10-min stall)
+pz.hook("SubagentStart", **B)
+pz.hook("SubagentStart", **C)
+pz.cli("--as", c, "claim", "busy.py")                              # C is still working: it holds a claim
+w = subprocess.Popen([sys.executable, LUCID, "--as", main, "wait"], cwd=pz.root, env=dict(BASE_ENV, LUCID_IDLE_WORKER="1"),
+                     stdout=subprocess.PIPE, text=True)
+time.sleep(3)
+assert w.poll() is None                                             # B is silent but C holds a claim: keep waiting
+pz.cli("--as", c, "release")
+assert pz.hook("SubagentStop", **C)[0] == 0
+out = w.communicate(timeout=15)[0]
+assert "all your workers have stopped" in out, out                  # B never sent SubagentStop, yet doesn't block
 
 # Stop nudge: a lead going idle while its workers hold claims is told to arm `lucid wait`, once
 assert pq.cli("--as", a, "claim", "x.py").returncode == 0

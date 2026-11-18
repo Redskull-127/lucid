@@ -45,6 +45,7 @@ TTL = _int_env("LUCID_CLAIM_TTL", 1200)  # a claim lapses after 20 min of owner 
 STRAY_ALARM = _int_env("LUCID_STRAY_ALARM", 20)  # one command changing this many unclaimed files raises a blocker
 CAP_DIGEST, CAP_DELTA, CAP_CLAIMS, CAP_PLAN = 6000, 2500, 1200, 2500  # ponytail: fixed char budgets, make configurable if they bite
 RULES = os.environ.get("LUCID_RULES", "on").strip().lower()  # on | observe (record stats, inject nothing) | off
+IDLE_WORKER = _int_env("LUCID_IDLE_WORKER", 120)  # seconds a claimless, silent worker may hold a `lucid wait`
 NAGS, CAP_REVIEW = 2, 1500  # forbid feedback per rule+file per session; rule text per review gate
 # A user correcting the agent: a possible team convention. ponytail: a regex; a false hit costs one capped hint line.
 CORRECTION = re.compile(r"^\W*(?:no|nope|don'?t|do not|never|stop|instead|actually)\b|\b(?:we (?:always|never|don'?t|do not|"
@@ -1273,8 +1274,13 @@ def cli(argv):
             except OSError:
                 others = []
             # Bench: `claude -p` stays up while this runs, so idling 5 min after the last worker stopped cost 10 min.
-            mine = [s for s in (load_state(x.name[:-5]) for x in others if x.name.startswith("ag-")) if s.get("parent") == me]
-            if mine and all(s.get("stopped") for s in mine):
+            mine = [(x, s) for x, s in ((x, load_state(x.name[:-5])) for x in others if x.name.startswith("ag-"))
+                    if s.get("parent") == me]
+            # 0.6 bench: a subagent that started but never stopped (no claim, no tool call) held a `wait` for 10 min.
+            # So a worker counts as done once it stopped, or holds no claim and has been silent for 2 minutes.
+            held = live_claims(entries(0)[0]) if mine else {}
+            if mine and all(s.get("stopped") or (x.name[:-5] not in held and time.time() - x.stat().st_mtime > IDLE_WORKER)
+                            for x, s in mine):
                 return print("lucid: all your workers have stopped; nothing left to wait for.")
             if any(time.time() - x.stat().st_mtime < 300 for x in others):
                 busy = time.time()
