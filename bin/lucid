@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""lucid: one shared dream for every Claude agent working on a project.
+"""lucid: one shared dream for every Claude agent working on a feature.
 
-The dream lives in .lucid/: plan.md (the live plan) and log.jsonl (append-only:
+Each feature's dream (in a git repo: .lucid/dreams/<feature>/, out of git unless shared) holds plan.md (the live
+plan) and log.jsonl (append-only:
 decisions, facts, dead ends, blockers, file claims, plan diffs). Hooks inject it
 into every session and subagent, and stream other agents' changes in before each
 tool call, so nobody works from a stale plan or a lossy summary.
@@ -9,7 +10,8 @@ tool call, so nobody works from a stale plan or a lossy summary.
   lucid [--as ID] init | note KIND TEXT [-e path:line ...] | claim GLOB... [--for TASK]
                   | release [GLOB...] | supersede ID... [--why W] | log [--since ID] | status
                   | wait [--timeout S] | end
-                  | learn TEXT [--paths GLOB...] [-e path:line ...] [--source S] | rules [export [--check]]
+                  | learn TEXT [--paths GLOB...] [-e path:line ...] [--source S] [--kind K] | rules [export [--check]]
+                  | dream [list | use NAME | share | unshare | archive [NAME] | path]      (also: --dream NAME)
   lucid hook EVENT     (hook JSON on stdin; wired in hooks/hooks.json via hooks/guard.sh)
 
 Team rules are .claude/rules/*.md, which Claude Code loads itself. lucid adds `forbid:` (regexes added lines must not
@@ -61,7 +63,7 @@ HINT = ("[lucid] is installed. Use it on your own when it fits; the user won't n
 PROTECTED = re.compile(r"goal|constraint|rule|never|stop|must", re.I)
 PLAN_TEMPLATE = "# Plan\n\n## Goal\n\n## Tasks (one owner per file set)\n- [ ] \n\n## Constraints / non-goals\n"
 # a `lucid` invocation at command position: start, after ; & | ( newline ` or $( , optionally behind VAR=x prefixes
-LUCID_CMD = re.compile(r"(^|[;&|(\n`]|\$\()(\s*(?:\w+=\S*\s+)*)lucid(?:\s+--as[ =]\S+)?(?=\s|$)")
+LUCID_CMD = re.compile(r"(^|[;&|(\n`]|\$\()(\s*(?:\w+=\S*\s+)*)lucid(?:\s+--(?:as|dream)[ =]\S+)*(?=\s|$)")
 # Files a Bash command writes. Agents often edit through Bash (seen live: a python heredoc), which would
 # otherwise bypass claims and the stop gate. ponytail: a heuristic; it misses writes hidden behind variables
 # in other languages and can flag a quoted ">" as a write, which only means one extra "please log" nudge.
@@ -80,24 +82,43 @@ def bash_writes(cmd):
     if re.search(r"\.write(?:_text|_bytes|lines)?\(", cmd):  # scripts writing through variables: any quoted path
         paths += re.findall(r"['\"]([\w./-]+\.\w+)['\"]", cmd)
     return [x for x in paths if x != "/dev/null" and not x.startswith(("&", "$", "-"))]
-ROOT = D = ""
+ROOT = D = T = COMMON = MAIN = BRANCH = DREAM = ""
 
 
-# ---------- paths & small io ----------
+# ---------- paths, feature dreams & small io ----------
+# One dream per feature (0.6). In a git repo, a feature's dream lives in <main checkout>/.lucid/dreams/<name>/, kept
+# out of git through .git/info/exclude (not inside .git/: Claude Code asks before every edit there, and agents edit
+# plan.md). A branch binds to a dream; a branch stacked on a dream's branch inherits it; a subagent uses its lead's
+# dream wherever its worktree is. lucid's own bookkeeping (bindings, rule stats) lives in .git/lucid/. `lucid dream
+# share` lets one dream be committed on its branch. Legacy, one .lucid/ dream shared by every worktree, stays for
+# repos without git, LUCID_ROOT, or a 0.5-style .lucid/log.jsonl.
 
-def setup(start):
-    global ROOT, D
-    root = os.environ.get("LUCID_ROOT") or find_root(start)
-    if os.path.isfile(os.path.join(root, ".git")):  # linked git worktree: share the main checkout's dream
-        common = git_common_dir(root)
-        if common and os.path.isdir(os.path.join(os.path.dirname(common), ".lucid")):
-            root = os.path.dirname(common)
-    ROOT = os.path.realpath(root)  # macOS: /tmp is /private/tmp; tools report either
-    D = os.path.join(ROOT, ".lucid")
+def setup(start, inp=None, dream=""):
+    global ROOT, D, T, COMMON, MAIN, BRANCH
+    forced = os.environ.get("LUCID_ROOT")
+    root = os.path.realpath(forced or find_root(os.environ.get("LUCID_HOOK_ROOT") or start))
+    common, gitdir = ("", "") if forced else git_dirs(root)
+    main = os.path.dirname(common) if os.path.basename(common) == ".git" else root
+    COMMON = MAIN = BRANCH = ""
+    use("")
+    if not common or os.path.isfile(os.path.join(main, ".lucid", "log.jsonl")):
+        ROOT = main if common else root
+        T = D = os.path.join(ROOT, ".lucid")
+        return
+    ROOT, T, COMMON, MAIN = root, os.path.join(root, ".lucid"), common, main
+    head = read(os.path.join(gitdir, "HEAD")).strip()
+    BRANCH = head[16:] if head.startswith("ref: refs/heads/") else ""
+    use(dream or os.environ.get("LUCID_DREAM", "") or resolve(inp or {}))
+
+
+def use(name):
+    global DREAM, D
+    DREAM = name
+    D = dream_dir(name) if name else (reg("none") if COMMON else D)
 
 
 def find_root(start):
-    """Nearest dir with .lucid/, stopping at the repo root (which is where `lucid init` puts it)."""
+    """Nearest dir with .lucid/ or .git, the checkout lucid works in."""
     d = os.path.abspath(start)
     while True:
         if os.path.isdir(os.path.join(d, ".lucid")) or os.path.exists(os.path.join(d, ".git")):
@@ -107,14 +128,202 @@ def find_root(start):
         d = os.path.dirname(d)
 
 
-def git_common_dir(cwd):
-    try:
-        out = subprocess.run(["git", "rev-parse", "--git-common-dir"], cwd=cwd,
-                             capture_output=True, text=True, timeout=3).stdout.strip()
-    except (OSError, subprocess.SubprocessError):
-        return ""
-    return os.path.join(cwd, out) if out else ""
+def git_dirs(root):
+    """(common git dir, this checkout's git dir), read from disk without running git; ('', '') outside a repo."""
+    g = os.path.join(root, ".git")
+    if os.path.isfile(g):  # linked worktree: "gitdir: <common>/worktrees/<name>"
+        m = re.match(r"gitdir:\s*(.+)", read(g).strip())
+        g = os.path.realpath(os.path.join(root, m.group(1))) if m else ""
+    if not g or not os.path.isdir(g):
+        return "", ""
+    c = read(os.path.join(g, "commondir")).strip()
+    return (os.path.realpath(os.path.join(g, c)) if c else g), g
 
+
+def git(*args):
+    try:
+        r = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, timeout=4)
+    except (OSError, subprocess.SubprocessError):
+        return 1, ""
+    return r.returncode, r.stdout.strip()
+
+
+def reg(*parts):
+    return os.path.join(COMMON, "lucid", *parts)
+
+
+def dream_dir(name):
+    return os.path.join(MAIN, ".lucid", "dreams", name)
+
+
+def qkey(s):
+    """A branch or session id as one file name (feat/x -> feat%2Fx)."""
+    return re.sub(r"[^\w.-]", lambda m: "%%%02X" % ord(m.group()), s)
+
+
+def branch_list(d):
+    """[(branch, HEAD when bound, unix time when bound)] from a dream's `branches` file."""
+    return [tuple((x.split() + ["", ""])[:3]) for x in read(os.path.join(d, "branches")).splitlines() if x.strip()]
+
+
+def dreams():
+    d = os.path.join(MAIN, ".lucid", "dreams")
+    return sorted(n for n in (os.listdir(d) if os.path.isdir(d) else [])
+                  if not n.startswith(".") and os.path.isdir(os.path.join(d, n)))
+
+
+def resolve(inp):
+    live = lambda n: n if n and os.path.isdir(dream_dir(n)) else ""
+    if inp.get("agent_id"):  # a subagent works in its lead's dream, wherever its worktree is
+        n = live(read(reg("sessions", qkey(str(inp.get("session_id", ""))))).strip())
+        if n:
+            return n
+    if not BRANCH:
+        return ""
+    n = live(read(reg("branches", qkey(BRANCH))).strip())
+    if n:
+        return n
+    shared = os.path.join(T, "dreams")
+    for n in sorted(os.listdir(shared)) if os.path.isdir(shared) else []:  # a teammate's dream, committed on this branch
+        here = os.path.join(shared, n)
+        if any(b == BRANCH for b, _, _ in branch_list(here)):
+            if os.path.islink(dream_dir(n)) and not os.path.exists(dream_dir(n)):
+                os.remove(dream_dir(n))  # its worktree is gone
+            if not os.path.lexists(dream_dir(n)):
+                os.makedirs(os.path.dirname(dream_dir(n)), exist_ok=True)
+                os.symlink(here, dream_dir(n))
+            exclude(n, shared=True)
+            write(reg("branches", qkey(BRANCH)), n)
+            return n
+    return ""
+
+
+def bind(n):
+    """This branch works in dream `n`: remembered in .git/lucid/, and in the dream itself for merge checks and sharing."""
+    write(reg("branches", qkey(BRANCH)), n)
+    if all(b != BRANCH for b, _, _ in branch_list(dream_dir(n))):
+        with open(os.path.join(dream_dir(n), "branches"), "a", encoding="utf-8") as f:
+            f.write("%s %s %d\n" % (BRANCH, git("rev-parse", "HEAD")[1] or "-", time.time()))
+
+
+def exclude(name="", shared=None):
+    """Private dreams stay out of git with no committed ignore file (.git/info/exclude); a shared one is re-included."""
+    f = os.path.join(COMMON, "info", "exclude")
+    lines = read(f).splitlines()
+    want = lines + (["/.lucid/dreams/*"] if "/.lucid/dreams/*" not in lines else [])
+    neg = "!/.lucid/dreams/%s" % name
+    if name and shared is True and neg not in want:
+        want.append(neg)
+    if name and shared is False and neg in want:
+        want.remove(neg)
+    if want != lines:
+        write(f, "\n".join(want) + "\n")
+
+
+def create_dream(d):
+    for f, text in (("plan.md", PLAN_TEMPLATE), (".plan.prev", PLAN_TEMPLATE), ("log.jsonl", ""),
+                    (".gitignore", ".state/\n.plan.prev\n.debug.jsonl\n*.tmp\n"), (".gitattributes", "log.jsonl merge=union\n")):
+        if not os.path.exists(os.path.join(d, f)):
+            write(os.path.join(d, f), text)
+    os.makedirs(os.path.join(d, ".state"), exist_ok=True)
+
+
+def default_branch():
+    rc, out = git("symbolic-ref", "-q", "--short", "refs/remotes/origin/HEAD")
+    if rc == 0 and out:
+        return out
+    return next((b for b in ("main", "master") if git("rev-parse", "-q", "--verify", "refs/heads/" + b)[0] == 0), "")
+
+
+def tip(b):
+    rc, sha = git("rev-parse", "-q", "--verify", "refs/heads/%s^{commit}" % b)
+    return sha if rc == 0 else ""
+
+
+def gh_merged():
+    """{head branch: merge time} of merged PRs, from `gh`: squash merges leave no ancestry. Cached 10 min; LUCID_GH=0: off."""
+    f = reg("gh-merged.json")
+    try:
+        if time.time() - os.path.getmtime(f) < 600:
+            return json.loads(read(f))
+    except (OSError, ValueError):
+        pass
+    out = {}
+    if os.environ.get("LUCID_GH", "1") != "0":
+        import calendar  # lazy: every hook pays for module imports, and only this rare path needs it
+        try:
+            r = subprocess.run(["gh", "pr", "list", "--state", "merged", "--limit", "100", "--json", "headRefName,mergedAt"],
+                               cwd=ROOT, capture_output=True, text=True, timeout=3)
+            for pr in json.loads(r.stdout) if r.returncode == 0 else []:
+                t = calendar.timegm(time.strptime(pr["mergedAt"], "%Y-%m-%dT%H:%M:%SZ"))
+                out[pr["headRefName"]] = max(out.get(pr["headRefName"], 0), t)
+        except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
+            pass
+    write(f, json.dumps(out))
+    return out
+
+
+def merged(n, main):
+    """Has every branch of dream `n` landed on `main`? Ancestry (merge, fast-forward), else a merged PR (squash)."""
+    pairs = branch_list(dream_dir(n))
+    left = [(b, ts) for b, sha, ts in pairs
+            if not (tip(b) and tip(b) != sha and git("merge-base", "--is-ancestor", tip(b), main)[0] == 0)]
+    if left:
+        gm = gh_merged()
+        left = [b for b, ts in left if not gm.get(b, 0) > float(ts or 0)]
+    if left and BRANCH == main.split("/")[-1] and git("ls-files", "--error-unmatch", ".lucid/dreams/%s/plan.md" % n)[0] == 0:
+        left = []  # a shared dream that's in main's tree got there by merging
+    return bool(pairs) and not left
+
+
+def inherit():
+    """A branch stacked on a live dream's branch joins that dream (PR stacks), unless that branch already merged."""
+    main = default_branch()
+    if DREAM or not BRANCH or not main or main.split("/")[-1] == BRANCH:
+        return
+    for n in dreams():
+        for b, sha, _ in branch_list(dream_dir(n)):
+            t = tip(b)
+            if (t and b != BRANCH and t != sha and git("merge-base", "--is-ancestor", t, "HEAD")[0] == 0
+                    and git("merge-base", "--is-ancestor", t, main)[0] != 0):
+                use(n)
+                bind(n)
+                return
+
+
+def merged_note():
+    main = default_branch()
+    done = [n for n in dreams() if main and merged(n, main)]
+    return "\n".join(
+        "[lucid] Feature `%s` has merged (%s). Its dream still holds the plan, decisions and dead ends. Run /lucid:dream %s "
+        "now: it consolidates them and proposes the lasting lessons as team rules (architecture, review learnings, "
+        "conventions), shows the user the diff and asks before opening a PR to main. Then `lucid dream archive %s`."
+        % (n, ", ".join(b for b, _, _ in branch_list(dream_dir(n))), n, n) for n in done)
+
+
+def archive_dream(n):
+    """Shelve a finished dream in .lucid/dreams/.archive/ (still out of git) and forget its bindings."""
+    import shutil
+    src = os.path.realpath(dream_dir(n))
+    dest = dream_dir(".archive/%s-%s" % (n, time.strftime("%Y-%m-%d-%H%M%S")))
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    shutil.move(src, dest)
+    if os.path.lexists(dream_dir(n)):
+        os.remove(dream_dir(n))
+    exclude(n, shared=False)
+    for sub in ("branches", "sessions"):
+        for k in os.listdir(reg(sub)) if os.path.isdir(reg(sub)) else []:
+            if read(reg(sub, k)).strip() == n:
+                os.remove(reg(sub, k))
+    return dest
+
+
+def planrel():
+    """The plan's path as agents should edit it: relative to this checkout when inside it, else absolute. Resolved:
+    Claude Code refuses an Edit through a symlink that leads outside the session's folder (seen live)."""
+    f = os.path.realpath(p("plan.md"))
+    r = os.path.relpath(f, ROOT)
+    return f if r.startswith("..") else r
 
 def p(name):
     return os.path.join(D, name)
@@ -327,7 +536,7 @@ def plan_view(plan, cap=CAP_PLAN):
         max((s for s in soft if len(s) > 1), key=lambda s: sum(map(len, s))).pop()
         cut = True
     out = "\n\n".join("\n".join(s).strip("\n") for s in secs)
-    return clip(out + ("\n… (trimmed; full plan: .lucid/plan.md)" if cut else ""), cap, "… (full plan: .lucid/plan.md)")
+    return clip(out + ("\n… (trimmed; full plan: %s)" % planrel() if cut else ""), cap, "… (full plan: %s)" % planrel())
 
 
 def fold(es):
@@ -399,11 +608,11 @@ def digest(me):
         how = ("Building part of the plan (your brief said to `lucid claim`)? Claim files before editing, and log what other "
                "agents must not rediscover: `lucid note decision|fact|failed|blocker \"...\" -e path:line`. Reviewing, researching "
                "or answering a question? Read this, but don't write to the log: report to whoever asked you.")
-    out = ["[lucid] Shared dream of this project (.lucid/). You are `%s`; your id is added to your `lucid` commands automatically.\n"
-           "%s ⚠stale = cited code changed since; re-verify it." % (me, how)]
+    out = ["[lucid] Shared dream %s. You are `%s`; your id is added to your `lucid` commands automatically.\n"
+           "%s ⚠stale = cited code changed since; re-verify it." % ("of feature `%s`" % DREAM if DREAM else "of this project", me, how)]
     plan = read(p("plan.md")).strip()
     if plan and plan != PLAN_TEMPLATE.strip():
-        out.append("## Plan (.lucid/plan.md)\n" + plan_view(plan))
+        out.append("## Plan (%s)\n" % planrel() + plan_view(plan))
     dg = read(p("digest.md"))
     m = re.match(r"<!-- lucid:upto=(\d+) -->\n?", dg)
     upto = int(m.group(1)) if m else 0
@@ -444,7 +653,7 @@ def delta(me, st):
             ctx = "[lucid] %d update(s) from other agents since you last looked:\n%s" % (
                 len(news), clip("\n".join(fmt(e, short=True) for e in news), CAP_DELTA, more))
             if any(e["kind"] == "plan" and not e.get("progress") for e in news):  # e2e: a worker obeyed its stale brief over a plan change
-                ctx += ("\n↳ .lucid/plan.md is the user's latest intent and overrides your original brief. If the change "
+                ctx += ("\n↳ The plan (%s) is the user's latest intent and overrides your original brief. If the change " % planrel() +
                         "touches files you own or claimed, apply it now and log a decision; otherwise carry on.")
     save_state(me, st)
     return ctx
@@ -552,11 +761,15 @@ def rules():
     return out
 
 
+def stats_file():
+    return reg("rules.jsonl") if COMMON else p(".state/rules.jsonl")
+
+
 def stat(ev, rid, f=""):
     """One event per line, per machine. O_APPEND writes this small don't interleave, so no lock."""
     try:
-        os.makedirs(p(".state"), exist_ok=True)
-        fd = os.open(p(".state/rules.jsonl"), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
+        os.makedirs(os.path.dirname(stats_file()), exist_ok=True)
+        fd = os.open(stats_file(), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
         try:
             os.write(fd, (json.dumps({"ts": int(time.time()), "ev": ev, "rule": rid, "file": f}) + "\n").encode())
         finally:
@@ -647,7 +860,7 @@ def review_gate(st):
 def learn_hint(inp, st):
     if RULES != "on" or st.get("learn_hints", 0) >= 3 or not CORRECTION.search(str(inp.get("prompt") or "")):
         return ""
-    if not (os.path.isdir(os.path.join(ROOT, ".claude", "rules")) or os.path.isdir(p("proposed"))):
+    if not (os.path.isdir(os.path.join(ROOT, ".claude", "rules")) or os.path.isdir(os.path.join(T, "proposed"))):
         return ""  # a project that hasn't adopted team rules: lucid stays a swarm tool there
     st["learn_hints"] = st.get("learn_hints", 0) + 1
     return ("[lucid] If that's a standing team convention (not just this task), propose it as a team rule: "
@@ -745,10 +958,19 @@ def hook(event):
     except ValueError:
         inp = {}
     inp = inp if isinstance(inp, dict) else {}
-    setup(inp.get("cwd") or os.getcwd())
-    if not os.path.isdir(D):  # not opted in: guard.sh lets only SessionStart through, to say when lucid helps
-        return emit(event, HINT) if event == "SessionStart" else 0
+    setup(inp.get("cwd") or os.getcwd(), inp)
+    if not (os.path.isdir(T) or os.path.isdir(os.path.join(MAIN or ROOT, ".lucid")) or (COMMON and os.path.isdir(reg()))):
+        return emit(event, HINT) if event == "SessionStart" else 0  # not opted in: guard.sh lets only SessionStart through
+    note = ""
+    if COMMON and not inp.get("agent_id"):
+        if event == "SessionStart":
+            inherit()  # a branch stacked on a feature's branch joins its dream
+            note = merged_note()
+        sk = reg("sessions", qkey(str(inp.get("session_id", ""))))
+        if DREAM and read(sk).strip() != DREAM:  # the lead's dream, for its subagents in other worktrees
+            write(sk, DREAM)
     if os.environ.get("LUCID_DEBUG"):
+        os.makedirs(D, exist_ok=True)
         with open(p(".debug.jsonl"), "a", encoding="utf-8") as f:
             f.write(json.dumps(dict(lucid_event=event, **inp)) + "\n")
     # `lucid end`: the swarm is over, so its hooks go quiet (field run: 2.5 h of solo review rounds still got notes).
@@ -786,22 +1008,23 @@ def hook(event):
 
     if event in ("SessionStart", "SubagentStart"):
         if ended:
-            return emit(event, "[lucid] %s `lucid status` shows its plan and log; `lucid init` starts a new swarm."
-                        % read(p("ended")).strip()) if event == "SessionStart" else 0
+            return emit(event, "\n".join(x for x in ("[lucid] %s `lucid status` shows its plan and log; `lucid init` starts a "
+                        "new swarm." % read(p("ended")).strip(), note) if x)) if event == "SessionStart" else 0
         ctx, st["cursor"] = digest(me)
         if event == "SubagentStart":
             st["parent"] = who({"session_id": inp.get("session_id", "")})  # the lead that spawned it (Stop nudge, wait)
             st.pop("stopped", None)
         save_state(me, st)
-        return emit(event, ctx or (HINT if event == "SessionStart" else ""))  # nothing shared yet: say when lucid helps
+        ctx = ctx or (HINT if event == "SessionStart" else "")  # nothing shared yet: say when lucid helps
+        return emit(event, "\n\n".join(x for x in (ctx, note) if x))
     if event == "UserPromptSubmit":
         ctx = "" if ended else delta(me, st)
         busy = [] if ended else sorted(o for o in live_claims(entries(0)[0]) if o != me)
         ticks = [] if ended else re.findall(r"(?m)^\s*[-*] \[([ xX])\]", read(plan))
         if busy:  # e2e: leads relayed chat-only plan changes by message and skipped plan.md (1 of 3 recorded it)
             ctx = (ctx + "\n" if ctx else "") + (
-                "[lucid] %s still working. If this message changes the plan, edit .lucid/plan.md first (or /lucid:replan): "
-                "they get the diff before their next tool call, and it survives /compact." % ", ".join(busy))
+                "[lucid] %s still working. If this message changes the plan, edit %s first (or /lucid:replan): "
+                "they get the diff before their next tool call, and it survives /compact." % (", ".join(busy), planrel()))
         elif ticks and all(t in "xX" for t in ticks) and not inp.get("agent_id") and not st.get("end_hinted"):
             st["end_hinted"] = True
             save_state(me, st)
@@ -821,7 +1044,7 @@ def hook(event):
                 # manage ids. No permissionDecision: normal permission rules still apply to the rewritten command.
                 # ponytail: a "; lucid" inside quoted text gets stamped too; cosmetic
                 cmd = str(ti.get("command", ""))
-                fixed = LUCID_CMD.sub(lambda m: m.group(1) + m.group(2) + "lucid --as " + me, cmd)
+                fixed = LUCID_CMD.sub(lambda m: m.group(1) + m.group(2) + "lucid --as " + me + (" --dream " + DREAM if DREAM else ""), cmd)
                 if fixed != cmd:
                     extra["updatedInput"] = dict(ti, command=fixed)
                 for w in writes:
@@ -911,8 +1134,9 @@ def hook(event):
 def cli(argv):
     ap = argparse.ArgumentParser(prog="lucid", description="Shared dream for Claude agents: live plan, decision log, file claims.")
     ap.add_argument("--as", dest="me", default=os.environ.get("LUCID_AGENT", "human"), help="agent id (hooks fill it in for agents)")
+    ap.add_argument("--dream", default="", help="feature dream to use (default: this branch's; hooks fill it in for agents)")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("init", help="create .lucid/ in this project")
+    sub.add_parser("init", help="start this feature's dream (named after the branch)").add_argument("--name", default="")
     n = sub.add_parser("note", help="log a decision, fact, dead end (failed) or blocker")
     n.add_argument("kind", choices=KINDS)
     n.add_argument("text")
@@ -934,15 +1158,37 @@ def cli(argv):
     lr.add_argument("--paths", nargs="+", default=[], help="globs the rule applies to (default: everywhere)")
     lr.add_argument("-e", "--evidence", nargs="+", default=[], help="path[:line] where it shows, or a PR link")
     lr.add_argument("--source", default="chat", help="chat | pr#123 | dream | review")
+    lr.add_argument("--kind", default="convention", choices=["convention", "architecture", "review"],
+                    help="where it goes once promoted: .claude/rules/<kind>/")
+    dr = sub.add_parser("dream", help="feature dreams: list | use NAME | share | unshare | archive [NAME] | path")
+    dr.add_argument("action", nargs="?", default="list", choices=["list", "use", "share", "unshare", "archive", "path"])
+    dr.add_argument("name", nargs="?", default="")
     ru = sub.add_parser("rules", help="team rules with this machine's stats; `export` writes the AGENTS.md block")
     ru.add_argument("action", nargs="?", choices=["export"])
     ru.add_argument("--check", action="store_true", help="with export: exit 1 if AGENTS.md is out of date (for CI)")
     a = ap.parse_args(argv)
     me = re.sub(r"[^\w.-]", "_", a.me) or "human"
-    setup(os.getcwd())
+    setup(os.getcwd(), dream=re.sub(r"[^\w.-]", "_", a.dream))
 
     if a.cmd == "rules":
         return rules_cli(a)
+    if a.cmd == "dream":
+        return dream_cli(a)
+    if a.cmd == "init" and COMMON:
+        name = re.sub(r"[^\w.-]+", "-", a.name or DREAM or BRANCH).strip("-.")
+        if not name:
+            sys.exit("lucid: detached HEAD. Name the dream: `lucid init --name <feature>`")
+        if os.path.exists(os.path.join(dream_dir(name), "ended")):  # a new swarm: shelve the finished one
+            print("lucid: archived the ended dream to %s" % os.path.relpath(archive_dream(name), ROOT))
+        new = not os.path.isdir(dream_dir(name))
+        create_dream(dream_dir(name))
+        use(name)
+        exclude()
+        if BRANCH:
+            bind(name)
+        return print("lucid: %s dream `%s`%s: write the plan in %s. It stays out of git, and every worktree of this "
+                     "clone shares it; `lucid dream share` commits it on the branch for teammates."
+                     % ("new" if new else "using", name, " for branch `%s`" % BRANCH if BRANCH else "", planrel()))
     if a.cmd == "init":
         if os.path.exists(p("ended")):  # a new swarm: shelve the finished one so its log doesn't leak into the next feature
             arch = p("archive/" + time.strftime("%Y-%m-%d-%H%M%S"))
@@ -959,7 +1205,12 @@ def cli(argv):
         if not os.path.exists(p(".plan.prev")):
             write(p(".plan.prev"), read(p("plan.md")))
         return print("lucid: dream ready at %s. Write the plan in .lucid/plan.md" % D)
-    if not os.path.isdir(D):
+    if COMMON:
+        if a.cmd != "learn" and not (DREAM and os.path.isdir(D)):
+            sys.exit("lucid: no dream named `%s` (`lucid dream` lists them)." % DREAM if DREAM else
+                     "lucid: no dream for branch `%s` yet. `lucid init` starts one; `lucid dream use <name>` joins one "
+                     "(`lucid dream` lists them)." % (BRANCH or "(detached HEAD)"))
+    elif not os.path.isdir(D):
         if a.cmd != "learn":
             sys.exit("lucid: no .lucid/ found here; run `lucid init` first")
         ensure()  # proposing the first team rule opts the repo in
@@ -1038,27 +1289,80 @@ def cli(argv):
         append(agent=me, kind="end", text=text)
         write(p("ended"), text + "\n")
         print("lucid: ended. Hooks stay quiet here now (team rules still apply); the plan and log are kept. `lucid init` "
-              "archives them and starts a new swarm; `rm .lucid/ended` resumes this one.\nNext: run /lucid:dream to "
-              "consolidate this swarm's log and propose its lasting lessons as team rules.")
+              "archives them and starts a new swarm; `rm %s` resumes this one.\nNext: run /lucid:dream to "
+              "consolidate this swarm's log and propose its lasting lessons as team rules." % os.path.relpath(p("ended"), ROOT))
     elif a.cmd == "learn":
         globs = [norm_glob(g) for g in a.paths]
         text = a.text.strip()
         key = lambda s: re.sub(r"\W+", " ", s).strip().lower()
-        known = [os.path.join(d, f) for d in (p("proposed"), os.path.join(ROOT, ".claude", "rules"))
+        known = [os.path.join(d, f) for d in (os.path.join(T, "proposed"), os.path.join(ROOT, ".claude", "rules"))
                  for f in (os.listdir(d) if os.path.isdir(d) else []) if f.endswith(".md")]
         dup = next((k for k in known if key(text) in key(frontmatter(read(k))[1])), None)
         if dup:
             return print("lucid: already there: %s" % os.path.relpath(dup, ROOT))
         slug = "-".join(re.findall(r"[a-z0-9]+", text.lower())[:6])[:48].strip("-") or "rule"
-        path, k = p("proposed/%s.md" % slug), 2
+        path, k = os.path.join(T, "proposed", slug + ".md"), 2
         while os.path.exists(path):
-            path, k = p("proposed/%s-%d.md" % (slug, k)), k + 1
-        meta = (["paths: [%s]" % ", ".join(json.dumps(g) for g in globs)] if globs else []) + ["source: %s" % a.source]
+            path, k = os.path.join(T, "proposed", "%s-%d.md" % (slug, k)), k + 1
+        meta = (["paths: [%s]" % ", ".join(json.dumps(g) for g in globs)] if globs else []) + ["kind: " + a.kind, "source: " + a.source]
         ev = evidence(a.evidence)[0]
         meta += (["evidence: [%s]" % ", ".join(json.dumps(x) for x in ev)] if ev else []) + ["proposed: " + time.strftime("%Y-%m-%d")]
         write(path, "---\n%s\n---\n%s\n" % ("\n".join(meta), text))
         print("lucid: proposed %s. It does nothing until a PR moves it into .claude/rules/ (/lucid:learn promote)."
               % os.path.relpath(path, ROOT))
+
+
+def dream_cli(a):
+    import shutil
+    if not COMMON:
+        sys.exit("lucid: per-feature dreams need a git repo; this project uses the single dream in %s." % os.path.relpath(D, ROOT))
+    if a.action == "list":
+        main = default_branch()
+        names = dreams()
+        if not names:
+            return print("lucid: no feature dreams yet. `lucid init` starts one for this branch.")
+        for n in names:
+            flags = [x for x, on in (("shared", os.path.islink(dream_dir(n)) or "!/.lucid/dreams/%s" % n in read(
+                os.path.join(COMMON, "info", "exclude")).splitlines()), ("ended", os.path.exists(os.path.join(dream_dir(n), "ended"))),
+                ("merged", bool(main) and merged(n, main))) if on]
+            print("%s %s: branches %s%s" % ("*" if n == DREAM else " ", n, ", ".join(b for b, _, _ in branch_list(dream_dir(n))) or "none",
+                                             " · " + ", ".join(flags) if flags else ""))
+        return
+    n = a.name or DREAM
+    if a.action == "use":
+        if not a.name or not os.path.isdir(dream_dir(a.name)) or not BRANCH:
+            sys.exit("lucid: `lucid dream use <name>` joins an existing dream from a branch (`lucid dream` lists them).")
+        use(a.name)
+        bind(a.name)
+        return print("lucid: branch `%s` now works in dream `%s`." % (BRANCH, a.name))
+    if not n or not os.path.isdir(dream_dir(n)):
+        sys.exit("lucid: no dream here. `lucid dream` lists them.")
+    if a.action == "path":
+        return print(dream_dir(n))
+    if a.action == "archive":
+        dest = archive_dream(n)
+        return print("lucid: archived `%s` to %s.%s" % (n, os.path.relpath(dest, ROOT), " It was shared: commit its removal "
+                     "(with the learnings PR)." if git("status", "--porcelain", "--", ".lucid/dreams/" + n)[1] else ""))
+    here = os.path.join(T, "dreams", n)
+    if a.action == "share":  # the dream moves into this checkout, where its branch is, and is committed there
+        if os.path.realpath(dream_dir(n)) != os.path.realpath(here):
+            if os.path.lexists(here):
+                sys.exit("lucid: %s already exists." % os.path.relpath(here, ROOT))
+            os.makedirs(os.path.dirname(here), exist_ok=True)
+            shutil.move(os.path.realpath(dream_dir(n)), here)
+            if os.path.lexists(dream_dir(n)):
+                os.remove(dream_dir(n))
+            os.symlink(here, dream_dir(n))
+        exclude(n, shared=True)
+        return print("lucid: `%s` is shared. Commit %s/ on this branch: teammates who check it out get the same dream. "
+                     "It reaches main with the feature, and the learnings PR removes it." % (n, os.path.relpath(here, ROOT)))
+    exclude(n, shared=False)  # unshare: back out of git, kept on this machine
+    git("rm", "-r", "-q", "--cached", "--ignore-unmatch", os.path.relpath(os.path.realpath(dream_dir(n)), ROOT))
+    if os.path.islink(dream_dir(n)):
+        real = os.path.realpath(dream_dir(n))
+        os.remove(dream_dir(n))
+        shutil.move(real, dream_dir(n))
+    print("lucid: `%s` is private again. Commit the removal of .lucid/dreams/%s/ from the branch." % (n, n))
 
 
 def ensure():
@@ -1109,7 +1413,7 @@ def rules_cli(a):
                   "(even one line) makes it use CLAUDE.md and .claude/rules/ and leave AGENTS.md to other tools.")
         return
     agg = {}
-    for line in read(p(".state/rules.jsonl")).splitlines():
+    for line in read(stats_file()).splitlines():
         try:
             e = json.loads(line)
         except ValueError:
@@ -1132,7 +1436,8 @@ def rules_cli(a):
     for r in rs:
         if r["broken"]:
             print("Skipped %s: %s" % (r["id"], r["broken"]))
-    prop = sorted(f for f in (os.listdir(p("proposed")) if os.path.isdir(p("proposed")) else []) if f.endswith(".md"))
+    pd = os.path.join(T, "proposed")
+    prop = sorted(f for f in (os.listdir(pd) if os.path.isdir(pd) else []) if f.endswith(".md"))
     if prop:
         print("Proposed, not active (%d): %s. Review them with /lucid:learn promote." % (len(prop), ", ".join(prop)))
 

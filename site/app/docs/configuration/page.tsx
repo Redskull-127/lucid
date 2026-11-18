@@ -39,14 +39,29 @@ export default function Configuration() {
             <code key="2">LUCID_ROOT</code>,
             "project dir",
             <>
-              Where <code>.lucid/</code> lives, for worktrees outside the repo.
+              Forces the single-dream layout, with <code>.lucid/</code> in this folder. Feature dreams don’t need it.
+            </>,
+          ],
+          [
+            <code key="6">LUCID_DREAM</code>,
+            "unset",
+            <>
+              Use this feature dream instead of the branch’s (same as <code>lucid --dream NAME</code>).
+            </>,
+          ],
+          [
+            <code key="7">LUCID_GH</code>,
+            <code key="7d">1</code>,
+            <>
+              <code>0</code> skips asking <code>gh</code> about squash-merged PRs at session start (offline, or no{" "}
+              <code>gh</code>).
             </>,
           ],
           [
             <code key="3">LUCID_DEBUG</code>,
             "unset",
             <>
-              <code>1</code> logs every hook input to <code>.lucid/.debug.jsonl</code>.
+              <code>1</code> logs every hook input to <code>.debug.jsonl</code> in the dream’s folder (<code>lucid dream path</code>).
             </>,
           ],
         ]}
@@ -60,22 +75,20 @@ export default function Configuration() {
 
       <H2 id="commit">What to commit</H2>
       <p>
-        Commit <code>plan.md</code>, <code>log.jsonl</code> and <code>digest.md</code> so teammates and future sessions
-        share the dream. Per-agent state is git-ignored automatically by the <code>.gitignore</code> that{" "}
-        <code>lucid init</code> writes inside <code>.lucid/</code>. For team rules, commit <code>.claude/rules/</code>{" "}
-        and <code>.lucid/proposed/</code> too. Rule stats live in <code>.lucid/.state/</code>, so they stay on each
-        machine.
+        Commit <code>.claude/rules/</code> (team rules) and <code>.lucid/proposed/</code> (proposals waiting for review).
+        Feature dreams in <code>.lucid/dreams/</code> stay out of git through <code>.git/info/exclude</code>, unless you
+        share one, and lucid’s bookkeeping and rule stats live in <code>.git/lucid/</code> on each machine.
       </p>
       <Table
-        head={["Commit", "Ignored"]}
+        head={["Commit", "Kept out of git"]}
         rows={[
           [
             <>
-              <code>plan.md</code>, <code>log.jsonl</code>, <code>digest.md</code>, <code>proposed/</code>,{" "}
-              <code>.gitignore</code>, <code>.gitattributes</code>, and <code>.claude/rules/</code>
+              <code>.claude/rules/</code>, <code>.lucid/proposed/</code>, and a dream you <code>lucid dream share</code>
             </>,
             <>
-              <code>.state/</code>, <code>.plan.prev</code>, <code>.debug.jsonl</code>, <code>*.tmp</code>
+              <code>.lucid/dreams/</code> (private dreams and <code>.archive/</code>), every <code>.state/</code>,{" "}
+              <code>.git/lucid/</code>
             </>,
           ],
         ]}

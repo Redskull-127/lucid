@@ -18,7 +18,9 @@ export default function DocsOverview() {
 
       <H2 id="the-dream">What’s in the dream</H2>
       <p>
-        The dream is plain files in <code>.lucid/</code> at the root of your project:
+        Each feature gets its own dream: plain files in <code>.lucid/dreams/&lt;feature&gt;/</code>, kept out of git
+        and shared by the feature’s worktrees, stacked branches and agents (see{" "}
+        <Link href="/docs/feature-dreams">Feature dreams</Link>):
       </p>
       <Table
         keys
@@ -45,7 +47,7 @@ export default function DocsOverview() {
         minWidth={680}
         width={880}
         height={344}
-        alt="You edit .lucid/plan.md; hooks inject the full dream into every agent on start and only what changed before each tool call; agents write back with lucid note and lucid claim."
+        alt="You edit the feature's plan.md (.lucid/dreams/<feature>/); hooks inject the full dream into every agent on start and only what changed before each tool call; agents write back with lucid note and lucid claim."
       />
 
       <H2 id="why">The problem it solves</H2>
@@ -70,8 +72,8 @@ export default function DocsOverview() {
         edit files, when the plan changes mid-build, and when you state a standing convention. Claude then runs{" "}
         <code>/lucid:swarm</code>, <code>/lucid:replan</code> or <code>lucid learn</code> on its own. The rest of lucid
         stays inactive until a project has a <code>.lucid/</code> folder. Before that, a tiny shell guard exits on every
-        other hook without starting Python. It works from repo subfolders and git worktrees, which share the main
-        checkout’s dream.
+        other hook without starting Python. It works from repo subfolders and git worktrees; each feature’s worktrees
+        share that feature’s dream.
       </p>
 
       <H2 id="next">Where to go next</H2>

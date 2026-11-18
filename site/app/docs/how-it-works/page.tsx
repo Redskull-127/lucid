@@ -19,7 +19,7 @@ export default function HowItWorks() {
         minWidth={680}
         width={880}
         height={344}
-        alt="You edit .lucid/plan.md; hooks inject the full dream into every agent on start and only what changed before each tool call; agents write back with lucid note and lucid claim."
+        alt="You edit the feature's plan.md (.lucid/dreams/<feature>/); hooks inject the full dream into every agent on start and only what changed before each tool call; agents write back with lucid note and lucid claim."
       />
 
       <H2 id="hooks">The hooks</H2>
@@ -56,7 +56,7 @@ export default function HowItWorks() {
             </>,
             <>
               If other agents hold active claims, adds one line telling the lead to write a chat change of plan into{" "}
-              <code>.lucid/plan.md</code> first, so running workers get it and it survives <code>/compact</code>.
+              the plan file first, so running workers get it and it survives <code>/compact</code>.
             </>,
           ],
           [
@@ -83,7 +83,7 @@ export default function HowItWorks() {
               <strong>PostToolUse</strong> on Edit/Write
             </>,
             <>
-              When an agent edits <code>.lucid/plan.md</code>, records the change as a plan diff under that agent’s id.
+              When an agent edits the plan, records the change as a plan diff under that agent’s id.
             </>,
           ],
           [
@@ -106,6 +106,13 @@ export default function HowItWorks() {
         available, it exits without starting Python, so projects without lucid pay a few shell builtins and nothing
         more. The one exception is SessionStart, which starts Python once per session to print the note on when to use
         lucid.
+      </p>
+      <p>
+        In a git repo, each hook first finds the feature dream it works in. A subagent uses its lead’s, wherever its
+        worktree is. Any other session uses the dream its branch is bound to, or a shared dream committed on the
+        branch. At session start, an unbound branch stacked on a feature branch joins that feature’s dream, and
+        features whose branches have all merged are reported so their lessons become team rules. See{" "}
+        <Link href="/docs/feature-dreams">Feature dreams</Link>.
       </p>
 
       <H2 id="digest-delta">Digest and delta</H2>

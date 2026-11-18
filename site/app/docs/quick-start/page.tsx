@@ -16,18 +16,18 @@ export default function QuickStart() {
         <li>
           <h2 id="init">Turn lucid on</h2>
           <p>In your project, create the dream:</p>
-          <CodeBlock code={`lucid init        # creates .lucid/ ; write your plan in .lucid/plan.md`} what="lucid init" />
+          <CodeBlock code={`lucid init        # starts this feature's dream; prints the plan's path`} what="lucid init" />
         </li>
 
         <li>
           <h2 id="plan">Write the plan</h2>
           <p>
-            Open <code>.lucid/plan.md</code> and write the goal, then tasks that each own a separate set of files. For
+            Open the plan (<code>.lucid/dreams/&lt;feature&gt;/plan.md</code>) and write the goal, then tasks that each own a separate set of files. For
             example:
           </p>
           <CodeBlock
             lang="text"
-            label=".lucid/plan.md"
+            label=".lucid/dreams/<feature>/plan.md"
             what="example plan"
             code={`# Plan
 
@@ -84,7 +84,7 @@ Add discounts and item removal to the shop.
 +- ALSO add multiply() to calc.py`}
           />
           <p>
-            You can also edit <code>.lucid/plan.md</code> directly in your editor. lucid picks up plan edits made outside
+            You can also edit the plan directly in your editor. lucid picks up plan edits made outside
             Claude’s tools too.
           </p>
           <p>
@@ -98,7 +98,7 @@ Add discounts and item removal to the shop.
           <CodeBlock lang="claude" label="In Claude Code" what="dream command" code={`/lucid:dream`} />
           <p>
             When the log gets long, or before you hand the project to a new session, <code>/lucid:dream</code> merges
-            duplicates, retires stale or wrong entries and writes <code>.lucid/digest.md</code>. It proposes up to three
+            duplicates, retires stale or wrong entries and writes a digest. It proposes up to three
             lasting lessons as team rules. Claude suggests it after <code>lucid end</code>.
           </p>
         </li>

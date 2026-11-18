@@ -14,7 +14,7 @@ FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif"
 
 SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="880" height="344" viewBox="0 0 880 344" font-family="{font}">
 <title>How lucid works</title>
-<desc>You edit the plan. The .lucid folder holds plan.md and log.jsonl. Hooks inject the full digest into every agent at start
+<desc>You edit the plan. Each feature's dream, .lucid/dreams/&lt;feature&gt;/, holds plan.md and log.jsonl. Hooks inject the full digest into every agent at start
 and only what changed before each tool call. Agents write back with lucid note and lucid claim.</desc>
 <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
 <path d="M0 0L10 5L0 10z" fill="{line}"/></marker>
@@ -29,8 +29,7 @@ and only what changed before each tool call. Agents write back with lucid note a
 <text x="215" y="112" font-size="11" fill="{muted}" text-anchor="middle">/lucid:replan</text>
 
 <rect x="276" y="20" width="300" height="304" rx="12" fill="{dream}" stroke="{dream_border}"/>
-<text x="296" y="46" font-size="13" font-weight="600" fill="{ink}">.lucid/</text>
-<text x="347" y="46" font-size="12" fill="{ink2}">the shared dream</text>
+<text x="296" y="46" font-size="13" font-weight="600" fill="{ink}">.lucid/dreams/&lt;feature&gt;/<tspan dx="8" font-size="12" font-weight="400" fill="{ink2}">one per feature</tspan></text>
 <rect x="296" y="62" width="260" height="64" rx="8" fill="{box}" stroke="{border}"/>
 <text x="312" y="87" font-size="14" font-weight="600" fill="{ink}">plan.md</text>
 <text x="312" y="108" font-size="11.5" fill="{ink2}">the live plan; every edit becomes a diff</text>

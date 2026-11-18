@@ -16,7 +16,7 @@ export default function Cli() {
       <CodeBlock
         lang="text"
         copy={false}
-        code={`lucid [--as ME] init
+        code={`lucid [--as ME] [--dream NAME] init [--name NAME]
 lucid [--as ME] note {decision,fact,failed,blocker} TEXT [-e EVIDENCE [EVIDENCE ...]]
 lucid [--as ME] claim GLOB [GLOB ...] [--for TASK]
 lucid [--as ME] release [GLOB ...]
@@ -25,13 +25,14 @@ lucid [--as ME] log [--since SINCE]
 lucid [--as ME] status
 lucid [--as ME] wait [--timeout SECONDS]
 lucid [--as ME] end
-lucid learn TEXT [--paths GLOB [GLOB ...]] [-e EVIDENCE [EVIDENCE ...]] [--source SOURCE]
-lucid rules [export [--check]]`}
+lucid learn TEXT [--paths GLOB [GLOB ...]] [-e EVIDENCE [EVIDENCE ...]] [--source SOURCE] [--kind KIND]
+lucid rules [export [--check]]
+lucid dream [list | use NAME | share | unshare | archive [NAME] | path]`}
       />
       <p>
-        Every command accepts <code>-h</code> / <code>--help</code>. Commands other than <code>init</code>,{" "}
-        <code>learn</code> and <code>rules</code> need a <code>.lucid/</code> directory and exit with{" "}
-        <code>lucid: no .lucid/ found here; run `lucid init` first</code> otherwise.
+        Every command accepts <code>-h</code> / <code>--help</code>. In a git repo, commands other than{" "}
+        <code>init</code>, <code>learn</code>, <code>rules</code> and <code>dream</code> work on this branch’s feature
+        dream (or the one <code>--dream NAME</code> names), and say how to start or join one when there is none.
       </p>
 
       <H2 id="ids">Who wrote what: --as</H2>
@@ -52,12 +53,28 @@ lucid rules [export [--check]]`}
       </p>
 
       <H2 id="init">init</H2>
-      <CodeBlock code={`lucid init`} what="lucid init" />
+      <CodeBlock code={`lucid init [--name NAME]`} what="lucid init" />
       <p>
-        Creates <code>.lucid/</code> in this project with a plan template, an empty log and git settings. Safe to run
-        again: an existing plan and log are kept. See{" "}
-        <Link href="/docs/installation#created">what lucid init creates</Link>.
+        Starts this feature’s dream, named after the branch (or <code>--name</code>), and prints the plan’s path. It
+        stays out of git, and every worktree of the clone shares it. Safe to run again: an existing plan and log are
+        kept, and an ended dream of the same name is archived first. Outside git it creates the single{" "}
+        <code>.lucid/</code> dream, as before. See <Link href="/docs/installation#created">what lucid init creates</Link>.
       </p>
+
+      <H2 id="dream">dream</H2>
+      <CodeBlock lang="text" copy={false} code={`lucid dream [list | use NAME | share | unshare | archive [NAME] | path]`} />
+      <Table
+        keys
+        head={["Action", "What it does"]}
+        rows={[
+          [<code key="1">list</code>, "Every feature dream in this clone with its branches, and whether it’s shared, ended or merged. * marks yours."],
+          [<code key="2">use NAME</code>, "Binds this branch to an existing dream."],
+          [<code key="3">share</code>, "Moves the dream into this checkout and stops excluding it, so you can commit it on the branch for teammates."],
+          [<code key="4">unshare</code>, "Makes it private again and stages its removal from the branch."],
+          [<code key="5">archive [NAME]</code>, "Moves a finished dream to .lucid/dreams/.archive/ and forgets its bindings."],
+          [<code key="6">path</code>, "Prints the dream’s folder."],
+        ]}
+      />
 
       <H2 id="note">note</H2>
       <CodeBlock lang="text" copy={false} code={`lucid note {decision,fact,failed,blocker} TEXT [-e EVIDENCE [EVIDENCE ...]]`} />
@@ -161,18 +178,20 @@ lucid release 'src/db/**'     # just this one`} />
         log, so solo work afterwards doesn’t pay for coordination nobody needs. <Link href="/docs/team-rules">Team
         rules</Link> keep working. The output suggests <code>/lucid:dream</code> to turn the swarm’s lessons into rule
         proposals. The next <code>lucid init</code> moves the plan and log
-        to <code>.lucid/archive/</code> and starts fresh; <code>rm .lucid/ended</code> resumes the old swarm instead.
+        to the archive and starts fresh; deleting the dream’s <code>ended</code> file resumes the old swarm instead.
       </p>
 
       <H2 id="learn">learn</H2>
       <CodeBlock
         lang="text"
         copy={false}
-        code={`lucid learn TEXT [--paths GLOB ...] [-e path:line ...] [--source chat|pr#123|dream|review]`}
+        code={`lucid learn TEXT [--paths GLOB ...] [-e path:line ...] [--source chat|pr#123|dream|review] [--kind architecture|review|convention]`}
       />
       <p>
         Proposes a team rule. It writes <code>.lucid/proposed/&lt;slug&gt;.md</code> in the rule format, with{" "}
-        <code>paths</code>, <code>source</code>, <code>evidence</code> and the date in its frontmatter. Claude Code
+        <code>paths</code>, <code>kind</code>, <code>source</code>, <code>evidence</code> and the date in its
+        frontmatter. The kind decides its folder once promoted: <code>.claude/rules/architecture/</code>,{" "}
+        <code>review/</code> or <code>conventions/</code>. Claude Code
         doesn’t load that folder, so the proposal does nothing until a PR moves it into <code>.claude/rules/</code>. A
         rule whose text already appears in a proposal or a rule is refused with <code>already there</code>. Run in a repo
         without <code>.lucid/</code>, it creates one, so proposing the first rule opts the repo in.

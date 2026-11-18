@@ -119,7 +119,8 @@ export default function Home() {
               One dream, kept in plain files, wired in through hooks
             </h2>
             <p className="lede mt-4">
-              The dream lives in <code>.lucid/</code>. Hooks read it into every agent, so nobody forgets to check it.
+              Each feature’s dream lives in <code>.lucid/dreams/&lt;feature&gt;/</code>, out of git, until the feature
+              merges. Hooks read it into every agent, so nobody forgets to check it.
             </p>
           </div>
 
@@ -138,7 +139,7 @@ export default function Home() {
               minWidth={680}
               width={880}
               height={344}
-              alt="You edit .lucid/plan.md; hooks inject the full dream into every agent on start and only what changed before each tool call; agents write back with lucid note and lucid claim."
+              alt="You edit the feature's plan.md (.lucid/dreams/<feature>/); hooks inject the full dream into every agent on start and only what changed before each tool call; agents write back with lucid note and lucid claim."
             />
           </div>
 

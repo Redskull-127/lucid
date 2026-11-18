@@ -114,11 +114,12 @@ const FAQ = [
   },
   {
     id: "worktrees",
-    q: "Does it work with git worktrees?",
+    q: "Does it work with git worktrees and PR stacks?",
     a: (
       <>
-        Yes. Worktrees share the main checkout’s dream. For a worktree outside the repo, set{" "}
-        <Link href="/docs/configuration">LUCID_ROOT</Link>.
+        Yes. Each feature has its own dream, shared by every worktree on that feature, by branches stacked on it, and
+        by subagents in their own worktrees. Features in different worktrees never see each other’s plans. When the
+        feature’s PRs merge, its lessons become team rules. See <Link href="/docs/feature-dreams">Feature dreams</Link>.
       </>
     ),
   },
@@ -127,7 +128,7 @@ const FAQ = [
     q: "What if two people append to the log on different branches?",
     a: (
       <>
-        <code>lucid init</code> sets <code>log.jsonl merge=union</code> in <code>.lucid/.gitattributes</code>, so two
+        Each dream sets <code>log.jsonl merge=union</code> in its <code>.gitattributes</code>, so two
         people appending never conflict.
       </>
     ),

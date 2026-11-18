@@ -23,6 +23,7 @@
 <p align="center">
   <a href="#-install">Install</a> ·
   <a href="#-how-it-works">How it works</a> ·
+  <a href="#-feature-dreams">Feature dreams</a> ·
   <a href="#-team-rules">Team rules</a> ·
   <a href="#-benchmark">Benchmark</a> ·
   <a href="#-commands">Commands</a> ·
@@ -46,7 +47,7 @@ You build a feature with several Claude agents working at once, then change your
 
 ## ✨ What lucid does
 
-lucid gives every agent in the project **one shared memory**, the dream, kept as plain files in `.lucid/`:
+lucid gives every agent working on a feature **one shared memory**, the dream. Each feature gets its own, as plain files in `.lucid/dreams/<feature>/` that stay out of git ([Feature dreams](#-feature-dreams)):
 
 | File | What it holds |
 |---|---|
@@ -60,7 +61,7 @@ The memory is wired in through hooks, so agents can't forget to check it. Agents
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/how-it-works-dark.svg">
-  <img alt="You edit .lucid/plan.md; hooks inject the full dream into every agent on start and only what changed before each tool call; agents write back with lucid note and lucid claim." src="assets/how-it-works-light.svg" width="100%">
+  <img alt="You edit the feature's plan.md (.lucid/dreams/<feature>/); hooks inject the full dream into every agent on start and only what changed before each tool call; agents write back with lucid note and lucid claim." src="assets/how-it-works-light.svg" width="100%">
 </picture>
 
 | Hook | What it does |
@@ -73,7 +74,27 @@ The memory is wired in through hooks, so agents can't forget to check it. Agents
 | **Stop** · **SessionEnd** | Releases a session's claims when its turn or the session ends, so an idle agent never blocks others. |
 | **UserPromptSubmit** while workers are busy | Reminds the lead to write a chat change of plan into `plan.md` first, so running workers get it and it survives `/compact`. |
 
-> **You never have to name lucid.** Every session starts with a few lines on when it helps, so Claude runs `/lucid:swarm` before parallel agents edit files, `/lucid:replan` when you change the plan mid-build, and `lucid learn` when you state a standing convention. In a live test with no `.lucid/` and a prompt that only asked for two tasks done by two subagents in parallel, Claude ran `lucid init`, wrote the plan, logged two shared decisions and had its workers claim their files. The rest of lucid stays inactive until a project has `.lucid/`: before that, a tiny shell guard exits on every other hook without starting Python. It works from repo subfolders and git worktrees, which share the main checkout's dream.
+> **You never have to name lucid.** Every session starts with a few lines on when it helps, so Claude runs `/lucid:swarm` before parallel agents edit files, `/lucid:replan` when you change the plan mid-build, and `lucid learn` when you state a standing convention. In a live test with no `.lucid/` and a prompt that only asked for two tasks done by two subagents in parallel, Claude ran `lucid init`, wrote the plan, logged two shared decisions and had its workers claim their files. The rest of lucid stays inactive until a project has `.lucid/`: before that, a tiny shell guard exits on every other hook without starting Python. It works from repo subfolders and git worktrees.
+
+## 🌿 Feature dreams
+
+A team's memory has two lifetimes, and lucid keeps them apart:
+
+| | Long-term: team rules | Short-term: a feature dream |
+|---|---|---|
+| **What** | Architecture, review learnings, conventions | The plan, decisions, dead ends, facts, file claims |
+| **Where** | `.claude/rules/` on main | `.lucid/dreams/<feature>/`, out of git |
+| **Lives** | For good; changed through PRs | From `lucid init` until the feature's PRs merge |
+| **Seen by** | Every branch, every teammate | The feature's branches, worktrees and agents |
+
+- **One dream per feature.** `lucid init` starts a dream named after the branch, in the main checkout's `.lucid/dreams/`. lucid keeps it out of git through `.git/info/exclude`, so it never shows in `git status`.
+- **Worktrees, stacks and workers share it.** A session in any worktree finds its branch's dream, and a worktree on another feature has its own. A branch cut from a feature branch joins that feature's dream, so a PR stack shares one plan. A subagent works in its lead's dream wherever its worktree is.
+- **When the feature merges, the dream is consolidated into team rules.** At session start, lucid checks git ancestry, and `gh` for squash merges. When a feature's branches have all landed, Claude runs `/lucid:dream <feature>` on its own. It proposes the lasting lessons as `architecture`, `review` or `convention` rules, shows you the diff and asks before opening a PR to main. Then the dream is archived.
+- **Sharing is opt-in.** `lucid dream share` lets you commit a dream on its branch, so teammates on the same feature get it when they check the branch out. The learnings PR removes it from main.
+
+In a live run (Haiku, prompts that never mentioned lucid), a worktree on `feat-b` got its own dream, and its workers claimed and logged there. There were no permission prompts, and nothing from another feature's dream leaked in. After the merge, a new session on main asked only "anything I should take care of?" consolidated the dream, proposed an architecture rule and a convention rule, and stopped to ask before writing them or opening a PR.
+
+Repos with a 0.5-style `.lucid/log.jsonl` keep their single shared dream; to switch, move `.lucid/plan.md`, `log.jsonl` and `digest.md` out and run `lucid init` on a feature branch. More in the [Feature dreams docs](https://lucid.meertarbani.in/docs/feature-dreams).
 
 ## 📏 Team rules
 
@@ -322,8 +343,10 @@ lucid status        # the digest agents see
 lucid log --since 40
 lucid wait          # the lead runs this in the background: it returns when a worker logs a blocker
 lucid end           # the swarm is done: swarm hooks go quiet, plan and log stay (`lucid init` archives them)
-lucid learn "never use moment.js; use date-fns" --paths 'src/**' --source pr#412   # propose a team rule
+lucid learn "never use moment.js; use date-fns" --paths 'src/**' --kind convention --source pr#412   # propose a team rule
 lucid rules         # team rules with this machine's stats; `lucid rules export [--check]` for AGENTS.md
+lucid dream         # this clone's feature dreams; also: use NAME | share | unshare | archive [NAME] | path
+lucid --dream feat-x status   # any command, on another feature's dream
 ```
 
 > 💡 For parallel **full** Claude instances, enable Claude Code's Agent Teams with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. lucid doesn't spawn agents itself; it keeps the ones Claude Code spawns in sync.
@@ -381,6 +404,8 @@ lucid makes the parts fit together. It doesn't make them correct, so keep the re
 - **Single agent across sessions:** Claude Code's built-in auto-memory already carries a policy into the next session, and the benchmark shows parity there. lucid earns its keep when **several agents work at once**.
 - **Bash write detection is a heuristic.** It catches redirects, `tee`, `cp`/`mv`/`rm`, `sed -i` and Python writes, but not every way a program can write a file. During a swarm, a `git status` taken before and after each Bash call catches the rest after the fact. That adds about 0.2 s per Bash call on a 12k-file repo, and only while a swarm holds claims. If another agent writes during that window, the write may be blamed on the caller.
 - **Team-rule reviews are the agent checking itself.** A review round is a prompt, not proof, so keep human review and CI for what must hold. `forbid` is checked mechanically, but only on Edit, Write and MultiEdit text; Bash writes are covered by the review round.
+- **Claude Code asks before writing into `.claude/`**, so promoting rules means approving each rule file as it's written. That's by design: it's the moment to read them.
+- **Squash-merge detection needs `gh`.** Without it, lucid sees merges through git ancestry only, so a squash-merged feature isn't reported. Run `/lucid:dream <feature>` yourself, or `lucid dream archive`.
 - **Rule checks run inside Claude Code only.** Other tools get the same rules as AGENTS.md text. Rule stats are per machine.
 - **POSIX only** (macOS and Linux), because the log uses `flock` for locking.
 
@@ -390,11 +415,13 @@ lucid makes the parts fit together. It doesn't make them correct, so keep the re
 |---|---|---|
 | `LUCID_CLAIM_TTL` | `1200` | Seconds without activity from a claim's owner before the claim lapses. |
 | `LUCID_STRAY_ALARM` | `20` | Unclaimed files that one Bash command may change before lucid raises a blocker for everyone. |
-| `LUCID_ROOT` | project dir | Where `.lucid/` lives, for worktrees outside the repo. |
+| `LUCID_DREAM` | branch's | Use this feature dream (same as `lucid --dream NAME`). |
+| `LUCID_GH` | `1` | `0` skips asking `gh` about squash-merged PRs at session start. |
+| `LUCID_ROOT` | unset | Forces the single-dream layout, with `.lucid/` in this folder. Feature dreams don't need it. |
 | `LUCID_RULES` | `on` | Team rules: `on`, `observe` (record stats, show agents nothing) or `off`. |
-| `LUCID_DEBUG` | unset | `1` logs every hook input to `.lucid/.debug.jsonl`. |
+| `LUCID_DEBUG` | unset | `1` logs every hook input to `.debug.jsonl` in the dream's folder (`lucid dream path`). |
 
-Commit `plan.md`, `log.jsonl` and `digest.md` so teammates and future sessions share the dream, and `.claude/rules/` and `.lucid/proposed/` for team rules. Per-agent state and rule stats are git-ignored automatically.
+Commit `.claude/rules/` (team rules) and `.lucid/proposed/` (proposals waiting for review). Feature dreams stay out of git unless you `lucid dream share` one, and lucid's bookkeeping and rule stats live in `.git/lucid/` on each machine.
 
 To offer the plugin to everyone who opens the repo, commit this to `.claude/settings.json` (organization admins can force it with managed settings):
 

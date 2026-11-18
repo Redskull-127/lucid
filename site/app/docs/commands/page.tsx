@@ -42,7 +42,7 @@ export default function Commands() {
       </p>
       <ol>
         <li>
-          Runs <code>lucid init</code> if needed, then writes <code>.lucid/plan.md</code>: the goal, then tasks that
+          Runs <code>lucid init</code> if the branch has no dream yet, then writes the plan (<code>.lucid/dreams/&lt;feature&gt;/plan.md</code>): the goal, then tasks that
           each own a separate set of files (a glob). Tightly coupled work stays with one agent.
         </li>
         <li>
@@ -53,7 +53,7 @@ export default function Commands() {
           Spawns one worker per task, with Agent Teams if it’s enabled, otherwise as background subagents. Each brief is
           the task, its glob, what “done” means, and an instruction to claim the glob first. Briefs end with{" "}
           <em>
-            “<code>.lucid/plan.md</code> overrides this brief if the plan changes.”
+            “The lucid plan overrides this brief if it changes.”
           </em>{" "}
           The lead doesn’t name workers, assign ids or paste the plan: lucid identifies every agent, and hooks inject the
           plan.
@@ -76,10 +76,10 @@ export default function Commands() {
       <p>Applies a mid-build change of plan so every running agent picks it up before its next tool call:</p>
       <ol>
         <li>
-          Runs <code>lucid init</code> if <code>.lucid/</code> doesn’t exist.
+          Runs <code>lucid init</code> if the branch has no dream yet.
         </li>
         <li>
-          Edits <code>.lucid/plan.md</code> in place: changes tasks, strikes dropped ones as{" "}
+          Edits the plan in place: changes tasks, strikes dropped ones as{" "}
           <code>~~task~~ (dropped: why)</code>, and gives each new task an owner and a file set.
         </li>
         <li>
@@ -107,7 +107,7 @@ export default function Commands() {
           <code>lucid supersede</code>. Duplicates are superseded too, keeping the clearest one.
         </li>
         <li>
-          Writes <code>.lucid/digest.md</code>: at most about 40 lines of current decisions (with why), dead ends, and
+          Writes <code>digest.md</code> in the dream’s folder: at most about 40 lines of current decisions (with why), dead ends, and
           key facts with evidence. Its first line, <code>{`<!-- lucid:upto=N -->`}</code>, records which entries it
           covers; agents get newer entries raw.
         </li>
@@ -115,9 +115,14 @@ export default function Commands() {
           Never edits <code>log.jsonl</code>, and never drops a dead end unless it has been disproven.
         </li>
         <li>
-          Proposes up to 3 lessons that would help any future session as team rules, with{" "}
-          <code>lucid learn --source dream</code>. They stay inactive in <code>.lucid/proposed/</code> until a PR moves
-          them into <code>.claude/rules/</code>.
+          Proposes the lasting lessons as team rules, each with a kind: <code>architecture</code>,{" "}
+          <code>review</code> or <code>convention</code>. They stay inactive in <code>.lucid/proposed/</code> until a PR
+          moves them into <code>.claude/rules/&lt;kind&gt;/</code>.
+        </li>
+        <li>
+          If the feature has merged, promotes them, shows you the diff and asks before opening a PR to main, then
+          archives the dream. Claude starts this on its own when lucid reports a merged feature at session start; pass a
+          feature name (<code>/lucid:dream feat-billing</code>) to consolidate another feature’s dream.
         </li>
       </ol>
 
@@ -199,7 +204,7 @@ export default function Commands() {
           changed since it was written, so re-read the code before relying on it.
         </li>
         <li>
-          Never edit <code>.lucid/log.jsonl</code>. To retire a wrong entry, use{" "}
+          Never edit the dream’s <code>log.jsonl</code>. To retire a wrong entry, use{" "}
           <code>{`supersede <ids> --why "..."`}</code>.
         </li>
         <li>Edit the plan in place with the Edit tool; every running agent gets the diff automatically.</li>

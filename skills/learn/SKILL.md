@@ -16,7 +16,7 @@ review: true               # checked against the diff before an agent finishes a
 Every API handler logs through src/lib/logger.ts so request ids are kept.
 ```
 
-Proposals go to `.lucid/proposed/` through `lucid learn`. They do nothing until a PR moves them into `.claude/rules/`, so the team reviews every rule like code. Never commit, push or open a PR yourself unless the user asks.
+Rules are grouped by kind, each in its own folder: `.claude/rules/architecture/` (how parts fit, and why), `.claude/rules/review/` (what review catches) and `.claude/rules/conventions/` (how code is written here). Proposals go to `.lucid/proposed/` through `lucid learn --kind <architecture|review|convention>`. They do nothing until a PR moves them into `.claude/rules/`, so the team reviews every rule like code. Never commit, push or open a PR yourself unless the user asks.
 
 Mode: $ARGUMENTS
 
@@ -56,7 +56,7 @@ Skip it for one-off choices ("use a smaller font here"). Only standing conventio
    - **`forbid`**: only if a regex captures the rule exactly. Grep the current code under the rule's paths first. Add it only when it matches zero lines, or only real violations the user wants flagged. A noisy pattern does more harm than none.
    - **`review: true`**: for judgment rules that should be checked against the diff, such as "every handler validates input" or "migrations are reversible". Keep these few, because each costs one review step per turn that touches its paths.
    - Neither: a plain rule that Claude Code loads when its files are touched.
-3. Move each approved proposal with `git mv .lucid/proposed/<f>.md .claude/rules/<topic>.md`, then edit it: keep `paths`, add `forbid` or `review`, and delete `source`, `evidence` and `proposed` (git history keeps them). Delete rejected proposals.
+3. Move each approved proposal into its kind's folder, for example `git mv .lucid/proposed/<f>.md .claude/rules/architecture/<topic>.md` (`convention` goes to `conventions/`). Then edit it: keep `paths`, add `forbid` or `review`, and delete `kind`, `source`, `evidence` and `proposed` (git history keeps them). Delete rejected proposals.
 4. Run `lucid rules export` so Codex, Copilot, Cursor and review bots get the same rules through AGENTS.md.
 5. Show `git status` and the diff, then suggest a PR titled "Team rules: …". Open it only if the user asks.
 

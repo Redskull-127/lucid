@@ -6,8 +6,8 @@ argument-hint: <the change>
 
 The user changed the plan: $ARGUMENTS
 
-1. Run `lucid init` if `.lucid/` doesn't exist.
-2. Read `.lucid/plan.md` and edit it in place with the Edit tool.
+1. Run `lucid init` if this branch has no dream yet (`lucid status` says so).
+2. Read the plan, at the path in your `[lucid]` header's `## Plan (...)` line (or `lucid dream path`), and edit it in place with the Edit tool.
    - Change tasks as needed.
    - Strike dropped tasks: `~~task~~ (dropped: why)`.
    - Give each new task an owner and a file set.

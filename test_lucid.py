@@ -528,6 +528,101 @@ ms = timed(lambda: redit(pt, C, "pkg7/x.ts", "TODO7\n"))
 assert "rule 7" in redit(pt, D, "pkg7/x.ts", "TODO7\n") and ms < 400, ms
 print("team rules ok (edit with 200 rules: %.0f ms)" % ms)
 
+# ======================= feature dreams (0.6) =======================
+def fd_git(*a, cwd):
+    return subprocess.run(GIT + ["-c", "user.email=t@t", "-c", "user.name=t"] + list(a), cwd=cwd, capture_output=True, text=True, check=True).stdout
+
+
+def fd_cli(cwd, *args):
+    return subprocess.run([sys.executable, LUCID, *args], capture_output=True, text=True, cwd=cwd, env=dict(BASE_ENV, LUCID_GH="0"))
+
+
+def fd_hook(cwd, event, **inp):
+    """Exactly how Claude Code calls lucid: through guard.sh, with only the project dir in the environment."""
+    r = subprocess.run(["sh", GUARD, event], capture_output=True, text=True, input=json.dumps(dict(dict(session_id="F1", cwd=cwd), **inp)),
+                       env=dict(BASE_ENV, CLAUDE_PROJECT_DIR=cwd, LUCID_GH="0"))
+    assert r.returncode in (0, 2), r.stderr
+    return json.loads(r.stdout)["hookSpecificOutput"] if r.stdout.strip() else {}
+
+
+R = os.path.realpath(tempfile.mkdtemp())
+fd_git("init", "-q", cwd=R)
+open(os.path.join(R, "app.py"), "w").write("x = 1\n")
+fd_git("add", "-A", cwd=R)
+fd_git("commit", "-qm", "init", cwd=R)
+fd_git("checkout", "-qb", "feat-a", cwd=R)
+out = fd_cli(R, "init").stdout
+assert "new dream `feat-a` for branch `feat-a`" in out and ".lucid/dreams/feat-a/plan.md" in out, out
+assert fd_git("status", "--porcelain", cwd=R) == ""                                  # never in git status
+assert open(os.path.join(R, ".git/lucid/branches/feat-a")).read() == "feat-a"
+assert fd_cli(R, "note", "decision", "A uses cents").returncode == 0
+s = fd_hook(R, "SessionStart").get("additionalContext", "")
+assert "A uses cents" in s and "feature `feat-a`" in s and "## Plan" not in s, s
+# a worktree on another feature: its own dream, nothing leaks either way
+W = os.path.realpath(tempfile.mkdtemp()) + "/wt-b"
+fd_git("worktree", "add", "-q", W, "-b", "feat-b", "main", cwd=R)
+assert "no dream for branch `feat-b`" in fd_cli(W, "note", "fact", "x").stderr
+assert fd_hook(W, "SessionStart").get("additionalContext") == mod.HINT
+assert "new dream `feat-b`" in fd_cli(W, "init").stdout and fd_cli(W, "note", "decision", "B uses floats").returncode == 0
+assert "B uses floats" in fd_cli(W, "status").stdout and "A uses cents" not in fd_cli(W, "status").stdout
+assert "A uses cents" in fd_cli(R, "status").stdout and "B uses floats" not in fd_cli(R, "status").stdout
+assert os.path.isdir(os.path.join(R, ".lucid/dreams/feat-b")) and fd_git("status", "--porcelain", cwd=W) == ""
+# a subagent in its own worktree (Agent isolation) works in its lead's dream, and its lucid calls are stamped with it
+AW = os.path.realpath(tempfile.mkdtemp()) + "/agent-1"
+fd_git("worktree", "add", "-q", AW, "-b", "agent-1", "main", cwd=R)
+fd_hook(R, "UserPromptSubmit")                                                       # the lead (session F1) on feat-a
+sub = dict(agent_id="agent-x", agent_type="general-purpose")
+assert "A uses cents" in fd_hook(AW, "PreToolUse", tool_name="Read", tool_input={}, **sub).get("additionalContext", "")
+stamped_cmd = fd_hook(AW, "PreToolUse", tool_name="Bash", tool_input={"command": "lucid note fact y"}, **sub)["updatedInput"]["command"]
+assert stamped_cmd.endswith("--dream feat-a note fact y"), stamped_cmd
+# a PR stack: a branch cut from feat-a (once it has commits) joins feat-a's dream
+open(os.path.join(R, "app.py"), "a").write("y = 2\n")
+fd_git("commit", "-qam", "a1", cwd=R)
+fd_git("checkout", "-qb", "feat-a2", cwd=R)
+assert "A uses cents" in fd_hook(R, "SessionStart").get("additionalContext", "")
+assert open(os.path.join(R, ".git/lucid/branches/feat-a2")).read() == "feat-a"
+assert [b for b, _, _ in mod.branch_list(os.path.join(R, ".lucid/dreams/feat-a"))] == ["feat-a", "feat-a2"]
+# the stack merges: the next session on main is told to consolidate the feature's dream into team rules
+open(os.path.join(R, "app.py"), "a").write("z = 3\n")
+fd_git("commit", "-qam", "a2", cwd=R)
+fd_git("checkout", "-q", "main", cwd=R)
+fd_git("merge", "-q", "--no-ff", "-m", "merge stack", "feat-a2", cwd=R)
+s = fd_hook(R, "SessionStart").get("additionalContext", "")
+assert "Feature `feat-a` has merged (feat-a, feat-a2)" in s and "/lucid:dream feat-a" in s and "asks before opening a PR" in s, s
+assert "feat-b` has merged" not in s                                                 # no commits yet: not merged
+assert "merged" in fd_cli(R, "dream").stdout and "archived `feat-a`" in fd_cli(R, "dream", "archive", "feat-a").stdout
+assert not os.path.exists(os.path.join(R, ".git/lucid/branches/feat-a2")) and "feat-a" not in fd_cli(R, "dream").stdout
+assert "has merged" not in fd_hook(R, "SessionStart").get("additionalContext", "")
+assert len(os.listdir(os.path.join(R, ".lucid/dreams/.archive"))) == 1 and fd_git("status", "--porcelain", cwd=R) == ""
+# share: feat-b's dream moves into its worktree and can be committed there; per-agent state never is
+assert "is shared" in fd_cli(W, "dream", "share").stdout
+assert os.path.islink(os.path.join(R, ".lucid/dreams/feat-b")) and os.path.isdir(os.path.join(W, ".lucid/dreams/feat-b"))
+fd_hook(W, "SessionStart")
+st = fd_git("status", "--porcelain", "-uall", cwd=W)
+assert ".lucid/dreams/feat-b/plan.md" in st and ".lucid/dreams/feat-b/log.jsonl" in st and ".state" not in st, st
+fd_git("add", "-A", cwd=W)
+fd_git("commit", "-qm", "share dream", cwd=W)
+assert "B uses floats" in fd_cli(W, "status").stdout and "B uses floats" in fd_cli(R, "dream", "list").stdout + fd_cli(W, "status").stdout
+# a teammate's clone: checking out the branch is enough to share the dream
+C = os.path.realpath(tempfile.mkdtemp()) + "/clone"
+fd_git("clone", "-q", R, C, cwd=R)
+fd_git("checkout", "-q", "feat-b", cwd=C)
+assert "B uses floats" in fd_hook(C, "SessionStart").get("additionalContext", "")
+assert open(os.path.join(C, ".git/lucid/branches/feat-b")).read() == "feat-b"
+assert fd_cli(C, "note", "fact", "teammate was here").returncode == 0 and "teammate was here" in fd_git("diff", cwd=C)
+# unshare: back to private, its removal staged in the branch
+assert "private again" in fd_cli(W, "dream", "unshare").stdout
+assert not os.path.islink(os.path.join(R, ".lucid/dreams/feat-b")) and "B uses floats" in fd_cli(W, "status").stdout
+assert "D  .lucid/dreams/feat-b/plan.md" in fd_git("status", "--porcelain", cwd=W)
+# team-rule proposals carry a kind; rule stats stay in .git/lucid/ when there is one
+assert "proposed .lucid/proposed/billing-owns-invoices" in fd_cli(R, "learn", "billing owns invoices", "--kind", "architecture").stdout
+assert "kind: architecture" in open(os.path.join(R, ".lucid/proposed/billing-owns-invoices.md")).read()
+os.makedirs(os.path.join(R, ".claude/rules"))
+open(os.path.join(R, ".claude/rules/no-print.md"), "w").write("---\nforbid: 'print\\('\n---\n# No print\n")
+assert "team rule no-print.md" in fd_hook(R, "PreToolUse", tool_name="Write", tool_input={"file_path": os.path.join(R, "b.py"), "content": "print(1)\n"}).get("additionalContext", "")
+assert '"forbid"' in open(os.path.join(R, ".git/lucid/rules.jsonl")).read()
+print("feature dreams ok")
+
 # ======================= performance (10k-entry log) =======================
 pp = Project()
 for k in range(40):

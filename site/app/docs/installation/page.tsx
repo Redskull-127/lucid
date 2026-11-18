@@ -86,7 +86,7 @@ export default function Installation() {
       />
       <p>
         To install it for everyone without asking, an organization admin can put the same two keys in managed settings.
-        Then commit <code>.claude/rules/</code> and <code>.lucid/</code>, so every teammate’s agents get the same{" "}
+        Then commit <code>.claude/rules/</code> and <code>.lucid/proposed/</code>, so every teammate’s agents get the same{" "}
         <Link href="/docs/team-rules">team rules</Link>.
       </p>
 
@@ -104,13 +104,13 @@ claude plugin validate ./lucid --strict`}
       <H2 id="init">Turn it on in a project</H2>
       <p>
         Claude usually does this itself (see above). To do it by hand, ask Claude to run <code>lucid init</code> in the
-        project, then write your plan in <code>.lucid/plan.md</code>:
+        project, then write your plan at the path it prints, <code>.lucid/dreams/&lt;feature&gt;/plan.md</code>:
       </p>
       <CodeBlock code={`lucid init        # Claude runs this: the plugin puts lucid on its PATH`} what="lucid init" />
       <p>
         You can also skip this step: <Link href="/docs/commands#swarm">/lucid:swarm</Link> and{" "}
         <Link href="/docs/commands#replan">/lucid:replan</Link> run <code>lucid init</code> themselves when{" "}
-        <code>.lucid/</code> doesn’t exist yet. Running <code>lucid init</code> again is safe: it keeps an existing plan
+        the branch has no dream yet. Running <code>lucid init</code> again is safe: it keeps an existing plan
         and log.
       </p>
       <Callout>
@@ -122,25 +122,28 @@ claude plugin validate ./lucid --strict`}
       </Callout>
 
       <H2 id="created">What lucid init creates</H2>
+      <p>
+        In a git repo, <code>lucid init</code> starts this feature’s dream, named after the branch, in the main
+        checkout. It stays out of git (lucid adds <code>/.lucid/dreams/*</code> to <code>.git/info/exclude</code>), so{" "}
+        <code>git status</code> stays clean:
+      </p>
       <Table
         keys
-        head={["Path in .lucid/", "What it is", "In git"]}
+        head={["Path", "What it is", "In git"]}
         rows={[
-          [<code key="1">plan.md</code>, "The live plan, started from a short template (goal, tasks with one owner per file set, constraints).", "Commit"],
-          [<code key="2">log.jsonl</code>, "The append-only log. Starts empty.", "Commit"],
-          [<code key="3">digest.md</code>, "Not created by init. /lucid:dream writes it later.", "Commit"],
-          [<code key="4">.gitattributes</code>, <>Sets <code>log.jsonl merge=union</code>, so two people appending to the log never conflict.</>, "Commit"],
-          [<code key="5">.gitignore</code>, "Ignores the per-agent files below.", "Commit"],
-          [<code key="6">.state/</code>, "Per-agent state, such as how far each agent has read the log.", "Ignored"],
-          [<code key="7">.plan.prev</code>, "The last plan lucid saw, used to compute plan diffs.", "Ignored"],
-          [<code key="8">.debug.jsonl</code>, <>Only with <code>LUCID_DEBUG=1</code>: every hook input.</>, "Ignored"],
-          [<code key="9">proposed/</code>, <>Not created by init. <code>lucid learn</code> puts team-rule proposals here.</>, "Commit"],
+          [<code key="1">.lucid/dreams/&lt;feature&gt;/plan.md</code>, "The live plan, started from a short template (goal, tasks with one owner per file set, constraints).", "No, unless shared"],
+          [<code key="2">…/log.jsonl</code>, "The append-only log. Starts empty.", "No, unless shared"],
+          [<code key="3">…/digest.md</code>, "Not created by init. /lucid:dream writes it later.", "No, unless shared"],
+          [<code key="4">…/branches</code>, "The branches that work in this dream, for stacks and merge checks.", "No, unless shared"],
+          [<code key="5">…/.state/</code>, "Per-agent state, such as how far each agent has read the log.", "Never"],
+          [<code key="6">.git/lucid/</code>, "lucid’s bookkeeping: which branch and which lead session uses which dream, and the team-rule stats.", "Never"],
+          [<code key="7">.lucid/proposed/</code>, <>Not created by init. <code>lucid learn</code> puts team-rule proposals here.</>, "Commit"],
         ]}
       />
       <p>The plan template looks like this:</p>
       <CodeBlock
         lang="text"
-        label=".lucid/plan.md"
+        label=".lucid/dreams/<feature>/plan.md"
         what="plan template"
         code={`# Plan
 
@@ -151,18 +154,23 @@ claude plugin validate ./lucid --strict`}
 
 ## Constraints / non-goals`}
       />
+      <p>
+        Outside git, or in a repo that already has a 0.5-style <code>.lucid/log.jsonl</code>, lucid keeps one dream in{" "}
+        <code>.lucid/</code> for the whole project, as before.
+      </p>
 
       <H2 id="commit">What to commit</H2>
       <p>
-        Commit <code>plan.md</code>, <code>log.jsonl</code> and <code>digest.md</code> so teammates and future sessions
-        share the dream. Per-agent state is git-ignored automatically.
+        Commit <code>.claude/rules/</code> and <code>.lucid/proposed/</code>. Feature dreams stay on your machine unless
+        you share one with <code>lucid dream share</code> (see <Link href="/docs/feature-dreams#share">Feature
+        dreams</Link>).
       </p>
 
       <H2 id="worktrees">Subfolders and worktrees</H2>
       <p>
-        lucid finds <code>.lucid/</code> by walking up from the project directory, so it works from repo subfolders. Git
-        worktrees share the main checkout’s dream. For a worktree outside the repo, set{" "}
-        <Link href="/docs/configuration">LUCID_ROOT</Link> to where <code>.lucid/</code> lives.
+        lucid walks up from the project directory to the checkout, so it works from repo subfolders. Every worktree
+        of a clone shares each feature’s dream, wherever the worktree lives: a session finds its branch’s dream, and a
+        subagent finds its lead’s. See <Link href="/docs/feature-dreams">Feature dreams</Link>.
       </p>
 
       <p>

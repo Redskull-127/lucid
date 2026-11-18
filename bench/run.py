@@ -246,11 +246,13 @@ def make_repo(scenario, arm):
     sh(["git", "-c", "user.email=b@b", "-c", "user.name=b", "add", "-A"], d)
     sh(["git", "-c", "user.email=b@b", "-c", "user.name=b", "commit", "-qm", "init"], d)
     if arm == "lucid" and SCENARIOS[scenario].get("init", True):
-        sh([sys.executable, os.path.join(PLUGIN, "bin", "lucid"), "init"], d)
+        lucid = [sys.executable, os.path.join(PLUGIN, "bin", "lucid")]
+        sh(lucid + ["init"], d)
         if scenario.startswith("replan"):  # one plan file for both arms: lucid tracks PLAN.md through a symlink
-            os.remove(os.path.join(d, ".lucid", "plan.md"))
-            os.symlink("../PLAN.md", os.path.join(d, ".lucid", "plan.md"))
-            with open(os.path.join(d, ".lucid", ".plan.prev"), "w") as f:
+            dream = sh(lucid + ["dream", "path"], d).stdout.strip()  # this branch's dream, .lucid/dreams/<branch>/
+            os.remove(os.path.join(dream, "plan.md"))
+            os.symlink(os.path.join(d, "PLAN.md"), os.path.join(dream, "plan.md"))
+            with open(os.path.join(dream, ".plan.prev"), "w") as f:
                 f.write(PLAN)
     return d
 

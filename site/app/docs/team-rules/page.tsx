@@ -130,10 +130,18 @@ Every API handler logs through src/lib/logger.ts so request ids are kept.`}
         ]}
       />
       <p>
+        Each proposal has a kind that decides its folder: <code>architecture</code> (how parts fit, and why) goes to{" "}
+        <code>.claude/rules/architecture/</code>, <code>review</code> (what review catches) to{" "}
+        <code>.claude/rules/review/</code>, and <code>convention</code> to <code>.claude/rules/conventions/</code>. When a
+        feature merges, its dream proposes its lessons this way on its own (see{" "}
+        <Link href="/docs/feature-dreams#merge">Feature dreams</Link>).
+      </p>
+      <p>
         <code>/lucid:learn promote</code> then goes through the proposals with you. It merges duplicates and adds{" "}
         <code>forbid</code> only when a grep of today’s code shows the pattern has no false positives. It moves the
         approved ones into <code>.claude/rules/</code>, refreshes AGENTS.md and suggests a PR. lucid never commits or
-        pushes on its own.
+        pushes on its own. Claude Code asks before writing into <code>.claude/</code>, so you approve each rule file as
+        it’s written.
       </p>
       <CodeBlock
         label="Any agent, or your terminal"

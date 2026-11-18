@@ -16,7 +16,7 @@ export const DOC_GROUPS: DocGroup[] = [
       {
         href: "/docs",
         title: "Overview",
-        description: "What lucid is, what it keeps in .lucid/, and where to go next.",
+        description: "What lucid is, what each feature's dream holds, and where to go next.",
       },
       {
         href: "/docs/installation",
@@ -37,6 +37,11 @@ export const DOC_GROUPS: DocGroup[] = [
         href: "/docs/commands",
         title: "Commands",
         description: "The /lucid:swarm, /lucid:replan and /lucid:dream slash commands, and the protocol skill.",
+      },
+      {
+        href: "/docs/feature-dreams",
+        title: "Feature dreams",
+        description: "One dream per feature, shared by its worktrees, stacked branches and agents, consolidated into team rules when it merges.",
       },
       {
         href: "/docs/team-rules",

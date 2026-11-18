@@ -16,8 +16,9 @@ export default function Troubleshooting() {
       <p>lucid stays silent unless all of these are true:</p>
       <ul>
         <li>
-          <strong>The project has opted in.</strong> A <code>.lucid/</code> directory exists in the project, or in a
-          parent folder up to the repo root. Run <code>lucid init</code> if not.
+          <strong>The project has opted in, and the branch has a dream.</strong> <code>lucid dream</code> lists the
+          feature dreams and marks yours with *. Run <code>lucid init</code> to start one, or{" "}
+          <code>lucid dream use NAME</code> to join one.
         </li>
         <li>
           <strong>
@@ -29,10 +30,8 @@ export default function Troubleshooting() {
           <strong>The plugin is installed and enabled.</strong> Check with <code>/plugin</code> in Claude Code.
         </li>
         <li>
-          <strong>
-            For a worktree outside the repo, <code>LUCID_ROOT</code> points at the folder that holds{" "}
-            <code>.lucid/</code>.
-          </strong>
+          <strong>A subagent sees its lead’s dream</strong> only after the lead has had a turn in that dream. Start
+          workers after <code>lucid init</code>, which <code>/lucid:swarm</code> does.
         </li>
       </ul>
 
@@ -52,13 +51,13 @@ lucid log --since 40`}
       <H2 id="debug">Log every hook input</H2>
       <p>
         Start Claude Code with <code>LUCID_DEBUG=1</code>, and lucid appends every hook input, tagged with its event name,
-        to <code>.lucid/.debug.jsonl</code>. The file is git-ignored.
+        to <code>.debug.jsonl</code> in the dream’s folder (<code>lucid dream path</code>). It never reaches git.
       </p>
       <CodeBlock
         label="In your terminal"
         what="debug commands"
         code={`LUCID_DEBUG=1 claude
-tail -n 5 .lucid/.debug.jsonl`}
+tail -n 5 "$(lucid dream path)/.debug.jsonl"`}
       />
 
       <H2 id="claude-debug">Watch the hooks run</H2>
@@ -73,8 +72,8 @@ tail -n 5 .lucid/.debug.jsonl`}
         head={["Message", "What it means"]}
         rows={[
           [
-            <code key="1">lucid: no .lucid/ found here; run `lucid init` first</code>,
-            "The command ran outside an opted-in project. Run lucid init, run the command from inside the project, or set LUCID_ROOT.",
+            <code key="1">lucid: no dream for branch `…` yet</code>,
+            "This branch has no feature dream. Run lucid init to start one, lucid dream use NAME to join one, or pass --dream NAME.",
           ],
           [
             <code key="2">lucid: `path` is claimed by `owner` (glob: task). Work on something else, or coordinate …</code>,
@@ -112,7 +111,7 @@ tail -n 5 .lucid/.debug.jsonl`}
       <H2 id="report">Still stuck?</H2>
       <p>
         Open an issue on <a href={`${SITE.github}/issues`}>GitHub</a> with the output of <code>lucid status</code> and,
-        if you can, the relevant lines of <code>.lucid/.debug.jsonl</code>.
+        if you can, the relevant lines of the dream’s <code>.debug.jsonl</code>.
       </p>
     </>
   );
