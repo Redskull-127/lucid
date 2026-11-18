@@ -57,10 +57,11 @@ main = mod.who({"session_id": "S1"})
 
 # ======================= core behaviour =======================
 pr = Project(init=False)
-assert pr.hook("SessionStart") == (0, {})                         # inactive until opted in
+assert pr.ctx("SessionStart") == mod.HINT                         # not opted in: only when lucid would help
+assert pr.hook("PreToolUse", tool_name="Edit", tool_input={"file_path": pr.path("x.py")}) == (0, {})
 assert pr.cli("note", "fact", "x").returncode != 0
 assert pr.cli("init").returncode == 0
-assert "## Plan" not in pr.ctx("SessionStart")                   # untouched template costs no tokens
+assert pr.ctx("SessionStart") == mod.HINT                         # untouched template costs no tokens
 pr.put(".lucid/plan.md", "# Plan\n- build auth\n")
 s = pr.ctx("SessionStart")
 assert "build auth" in s and main in s
@@ -192,12 +193,15 @@ os.makedirs(pgd.path("pkg", "deep"))
 gh = lambda proj_dir: subprocess.run(["sh", GUARD, "SessionStart"], capture_output=True, text=True,
                                      input=json.dumps({"session_id": "S1", "cwd": proj_dir}),
                                      env=dict(BASE_ENV, CLAUDE_PROJECT_DIR=proj_dir))
-assert "Shared dream" in gh(pgd.path("pkg", "deep")).stdout
+pgd.cli("note", "fact", "deep-probe")
+assert "deep-probe" in gh(pgd.path("pkg", "deep")).stdout
 plain = tempfile.mkdtemp()
 subprocess.run(GIT + ["init", "-q"], cwd=plain)
-t0 = time.time()
 r = gh(plain)
-assert r.returncode == 0 and r.stdout == "" and time.time() - t0 < 0.5
+assert r.returncode == 0 and "[lucid] is installed" in r.stdout and "/lucid:swarm" in r.stdout   # unasked, says when
+t0 = time.time()
+r = subprocess.run(["sh", GUARD, "PreToolUse"], capture_output=True, text=True, input="{}", env=dict(BASE_ENV, CLAUDE_PROJECT_DIR=plain))
+assert r.returncode == 0 and r.stdout == "" and time.time() - t0 < 0.1   # every other hook: shell only, no python
 
 # git worktrees share the main checkout's dream, even when .lucid/ was committed into the worktree
 pw = Project()
@@ -420,6 +424,110 @@ arch = os.path.join(pe.path(".lucid/archive"), os.listdir(pe.path(".lucid/archiv
 assert "billing uses cents" in open(os.path.join(arch, "log.jsonl")).read()
 print("field run fixes ok")
 
+def timed(fn, n=5):
+    ts = []
+    for _ in range(n):
+        t0 = time.time()
+        fn()
+        ts.append(time.time() - t0)
+    return sorted(ts)[n // 2] * 1000
+
+
+# ======================= team rules (0.5) =======================
+fm, body = mod.frontmatter("---\npaths: [\"src/**/*.{ts,tsx}\", 'lib/*.py']\nforbid: 'console\\.log\\('   # no console\nreview: true\n"
+                           "extra:\n  - a\n  - \"b, c\"\n---\n# Title\nbody\n")
+assert fm == {"paths": ["src/**/*.{ts,tsx}", "lib/*.py"], "forbid": "console\\.log\\(", "review": True, "extra": ["a", "b, c"]}, fm
+assert body == "# Title\nbody\n" and mod.frontmatter("no frontmatter")[0] == {}
+g = lambda pat, f: bool(mod.glob_rx(pat).match(f))
+assert g("src/**/*.ts", "src/x.ts") and g("src/**/*.ts", "src/a/b/x.ts") and not g("src/**/*.ts", "lib/x.ts")
+assert g("**/*.test.ts", "a.test.ts") and g("**/*.test.ts", "p/q/a.test.ts") and not g("*.md", "docs/x.md")
+assert g("src/*.{ts,tsx}", "src/a.tsx") and not g("src/*.{ts,tsx}", "src/a/b.ts") and g("src/[!x]*.py", "src/a.py")
+assert mod.applies({"paths": ["src/api/"]}, "src/api/h.ts") and mod.applies({"paths": []}, "anything")
+
+def stop(proj, event="Stop", env=None, **inp):
+    r = subprocess.run([sys.executable, LUCID, "hook", event], capture_output=True, text=True,
+                       input=json.dumps(dict(dict(session_id="S1", cwd=proj.root), **inp)),
+                       env=dict(BASE_ENV, LUCID_ROOT=proj.root, **(env or {})))
+    assert r.returncode in (0, 2), r.stderr
+    return r.returncode, r.stderr
+
+
+def redit(proj, ag, f, new, old="", tool="Edit", env=None):
+    ti = dict(file_path=proj.path(f), **({"content": new} if tool == "Write" else {"new_string": new, "old_string": old}))
+    return proj.hook("PreToolUse", env, tool_name=tool, tool_input=ti, **ag)[1].get("additionalContext", "")
+
+
+pt = Project()
+pt.put(".claude/rules/logging.md", "---\npaths: [\"src/**\"]\nforbid: 'console\\.log\\('\n---\n# Log through logger, never console\n")
+pt.put(".claude/rules/api/review.md", "---\npaths:\n  - src/api/**\nreview: true\n---\n# Handlers validate input with zod\nEvery handler parses req.body.\n")
+pt.put(".claude/rules/broken.md", "---\nforbid: '(['\n---\n# Broken regex\n")
+pt.put("src/old.ts", "console.log('legacy')\n")
+assert pt.ctx("SessionStart") == mod.HINT and pt.ctx("SubagentStart", **A) == ""     # rules only: no swarm context
+s = redit(pt, {}, "src/a.ts", "const x = 1\nconsole.log(x)\n")
+assert "team rule logging.md" in s and "console.log(x)" in s and "src/a.ts" in s, s
+assert redit(pt, {}, "src/a.ts", "console.log(x) // kept\n", old="console.log(x) // kept\n") == ""   # not added: untouched line
+assert redit(pt, {}, "src/old.ts", "console.log('legacy')\nconst y = 2\n", tool="Write") == ""      # legacy line in the file
+assert "console.log(z)" in redit(pt, {}, "src/old.ts", "console.log('legacy')\nconsole.log(z)\n", tool="Write")
+assert "team rule" in redit(pt, {}, "src/a.ts", "console.log(2)\n")                    # 2nd nag for src/a.ts...
+assert redit(pt, {}, "src/a.ts", "console.log(3)\n") == ""                               # ...then capped
+assert redit(pt, {}, "lib/a.ts", "console.log(1)\n") == ""                               # outside the rule's paths
+pt.put("src/a.ts", "const x = 1\nconsole.log(x)\n")                                    # the hit is still in the code
+rc, err = stop(pt)
+assert rc == 2 and "src/a.ts still has `console.log(x)`" in err and "### api/review.md" not in err, err
+assert stop(pt, stop_hook_active=True) == (0, "")                                       # one review round, no loop
+pt.put("src/api/h.ts", "export const h = () => 1\n")
+redit(pt, {}, "src/api/h.ts", "export const h = () => 1\n", tool="Write")
+rc, err = stop(pt)
+assert rc == 2 and "### api/review.md" in err and "zod" in err and "git diff -- src/api/h.ts" in err, err
+assert stop(pt, stop_hook_active=True)[0] == 0 and stop(pt)[0] == 0                     # the turn reset: nothing touched
+redit(pt, A, "src/api/w.ts", "x\n", tool="Write")                                       # a worker: reviewed once
+pt.cli("--as", a, "note", "decision", "w.ts exports x")
+rc, err = stop(pt, "SubagentStop", **A)
+assert rc == 2 and "### api/review.md" in err and "logged nothing" not in err, err
+assert stop(pt, "SubagentStop", **A)[0] == 0
+out = pt.cli("rules").stdout
+assert "logging.md [forbid]" in out and "forbid 4" in out and "unresolved 1" in out and "api/review.md [review]" in out, out
+assert "Skipped broken.md: bad forbid regex" in out, out
+# observe: stats only, nothing reaches the agent; off: nothing at all
+po = Project()
+po.put(".claude/rules/logging.md", "---\nforbid: 'console\\.log'\nreview: true\n---\n# No console\n")
+assert redit(po, {}, "a.ts", "console.log(1)\n", env={"LUCID_RULES": "observe"}) == ""
+assert stop(po, env={"LUCID_RULES": "observe"}) == (0, "")
+assert "forbid 1" in po.cli("rules", LUCID_RULES="observe").stdout
+assert redit(po, {}, "b.ts", "console.log(1)\n", env={"LUCID_RULES": "off"}) == "" and stop(po, env={"LUCID_RULES": "off"}) == (0, "")
+assert "forbid 1," in po.cli("rules").stdout
+# `lucid end` quiets the swarm, not the rules
+po.cli("end")
+assert "team rule logging.md" in redit(po, B, "c.ts", "console.log(1)\n") and stop(po, "SubagentStop", **B)[0] == 2
+# learn: a proposal in .lucid/proposed/, inactive, opts the repo in; duplicates refused
+pl = Project(init=False)
+r = pl.cli("learn", "Never use moment.js; use date-fns", "--paths", "src/**", "--source", "pr#42")
+assert r.returncode == 0 and "proposed .lucid/proposed/never-use-moment-js-use-date.md" in r.stdout, r.stdout + r.stderr
+meta, body = mod.frontmatter(open(pl.path(".lucid/proposed/never-use-moment-js-use-date.md")).read())
+assert meta["paths"] == ["src/**"] and meta["source"] == "pr#42" and body.strip() == "Never use moment.js; use date-fns"
+assert "already there" in pl.cli("learn", "never use moment.js;  use date-fns").stdout
+assert os.path.exists(pl.path(".lucid/.gitignore")) and "Proposed, not active (1)" in pl.cli("rules").stdout
+hint = lambda text, **env: pl.hook("UserPromptSubmit", env, prompt=text)[1].get("additionalContext", "")
+assert "lucid learn" in hint("No, we never use floats for money here") and hint("please add a test for tax()") == ""
+assert "lucid learn" in hint("from now on put types in types.ts") and "lucid learn" in hint("don't do that")
+assert hint("never mind, use X instead") == ""                                          # capped at 3 per session
+# export: a generated AGENTS.md block other tools read; --check catches drift; the rest of the file is kept
+pt.put("AGENTS.md", "# House notes\nkeep me\n")
+assert pt.cli("rules", "export").returncode == 0
+md = open(pt.path("AGENTS.md")).read()
+assert md.startswith("# House notes\nkeep me\n\n<!-- lucid:rules") and "### `src/api/**`" in md and "#### Handlers validate" in md, md
+assert "Never in new code: `console\\.log\\(`" in md and "Broken regex" not in md and md.endswith("<!-- /lucid:rules -->\n")
+assert pt.cli("rules", "export", "--check").returncode == 0
+pt.put(".claude/rules/new.md", "# Prefer named exports\n")
+assert pt.cli("rules", "export", "--check").returncode == 1 and pt.cli("rules", "export").returncode == 0
+assert "### Everywhere" in open(pt.path("AGENTS.md")).read() and pt.cli("rules", "export", "--check").returncode == 0
+# 200 rule files stay cheap on every edit
+for k in range(200):
+    pt.put(".claude/rules/many/r%d.md" % k, "---\npaths: [\"pkg%d/**\"]\nforbid: 'TODO%d'\n---\n# rule %d\n" % (k, k, k))
+ms = timed(lambda: redit(pt, C, "pkg7/x.ts", "TODO7\n"))
+assert "rule 7" in redit(pt, D, "pkg7/x.ts", "TODO7\n") and ms < 400, ms
+print("team rules ok (edit with 200 rules: %.0f ms)" % ms)
+
 # ======================= performance (10k-entry log) =======================
 pp = Project()
 for k in range(40):
@@ -434,14 +542,6 @@ with open(pp.path(".lucid/log.jsonl"), "w") as f:
             e["evidence"], e["hashes"] = ["src/f%d.py:1" % (i % 40)], {"src/f%d.py" % (i % 40): "0" * 12}
         f.write(json.dumps(e) + "\n")
 
-
-def timed(fn, n=5):
-    ts = []
-    for _ in range(n):
-        t0 = time.time()
-        fn()
-        ts.append(time.time() - t0)
-    return sorted(ts)[n // 2] * 1000
 
 
 perf = {

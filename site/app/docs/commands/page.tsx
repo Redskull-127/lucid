@@ -8,7 +8,8 @@ export default function Commands() {
   return (
     <>
       <DocHeader title="Commands">
-        Three slash commands you run, and one protocol skill that Claude loads on its own.
+        Four slash commands, and one protocol skill. You can run them yourself, but you don’t have to: every session
+        tells Claude when each one helps, and it starts them on its own.
       </DocHeader>
 
       <Table
@@ -24,7 +25,11 @@ export default function Commands() {
           ],
           [
             <code key="d">/lucid:dream</code>,
-            "Consolidates a long memory: merges duplicates, retires stale entries, and suggests lessons for CLAUDE.md. Runs only when you invoke it.",
+            "Consolidates a long memory: merges duplicates, retires stale entries, and proposes lasting lessons as team rules. Suggested after lucid end.",
+          ],
+          [
+            <code key="l">/lucid:learn [pr N | recent N | import | promote]</code>,
+            "Turns corrections, PR review comments and an existing CLAUDE.md or AGENTS.md into team rules, and walks proposals through to a PR.",
           ],
         ]}
       />
@@ -110,16 +115,62 @@ export default function Commands() {
           Never edits <code>log.jsonl</code>, and never drops a dead end unless it has been disproven.
         </li>
         <li>
-          Lists up to 3 lessons that would help any future session, and asks you before adding them to{" "}
-          <code>CLAUDE.md</code>.
+          Proposes up to 3 lessons that would help any future session as team rules, with{" "}
+          <code>lucid learn --source dream</code>. They stay inactive in <code>.lucid/proposed/</code> until a PR moves
+          them into <code>.claude/rules/</code>.
         </li>
       </ol>
 
+      <H2 id="learn">/lucid:learn</H2>
+      <CodeBlock
+        lang="claude"
+        label="In Claude Code"
+        what="learn commands"
+        code={`/lucid:learn pr 412        # learn from one PR's review threads
+/lucid:learn recent 30     # ...or the last 30 merged PRs
+/lucid:learn import        # split CLAUDE.md / AGENTS.md into path-scoped rules
+/lucid:learn promote       # review proposals, turn the approved ones into rules`}
+      />
+      <ul>
+        <li>
+          <strong>No argument:</strong> what Claude does after you correct it with a standing convention. It checks the
+          rule isn’t already there, proposes it with <code>lucid learn</code>, and tells you in one line.
+        </li>
+        <li>
+          <strong>
+            <code>pr</code> / <code>recent</code>:
+          </strong>{" "}
+          reads review threads from humans and review bots through <code>gh</code>. It keeps conventions that led to a
+          code change, skips nits a linter already catches, weights themes that recur across PRs, and proposes each
+          with its source PR and evidence.
+        </li>
+        <li>
+          <strong>
+            <code>import</code>:
+          </strong>{" "}
+          groups the instructions in your CLAUDE.md or AGENTS.md by the files they concern, writes one rule file per
+          group with the narrowest <code>paths</code>, and shows you the diff. It asks before deleting anything.
+        </li>
+        <li>
+          <strong>
+            <code>promote</code>:
+          </strong>{" "}
+          merges duplicates, decides with you whether each proposal gets a <code>forbid</code> pattern (only with zero
+          false positives in today’s code) or <code>review: true</code>, moves the approved ones into{" "}
+          <code>.claude/rules/</code>, runs <code>lucid rules export</code> and suggests a PR. It never commits or pushes
+          unless you ask.
+        </li>
+      </ul>
+      <p>
+        More in <Link href="/docs/team-rules">Team rules</Link>.
+      </p>
+
       <H2 id="protocol">The lucid protocol skill</H2>
       <p>
-        Besides the three commands, the plugin ships a <code>lucid</code> skill that teaches agents the protocol. Claude
-        loads it on its own when it’s relevant: starting a multi-step feature, before spawning subagents or teammates,
-        when you change the plan mid-build, or when you mention lucid.
+        Besides the four commands, the plugin ships a <code>lucid</code> skill that teaches agents the protocol,
+        including how to answer team-rule notes. Claude loads it on its own when it’s relevant: starting a multi-step
+        feature, before spawning subagents or teammates, when you change the plan mid-build, when a{" "}
+        <code>[lucid]</code> note asks for something, or when you mention lucid.
       </p>
       <H3 id="protocol-logging">What agents log</H3>
       <p>Only what another agent would otherwise rediscover or get wrong:</p>

@@ -9,7 +9,8 @@ export default function Installation() {
   return (
     <>
       <DocHeader title="Installation">
-        Install the plugin once, then turn it on in each project where you want agents to share a dream.
+        Install the plugin once. After that, Claude uses lucid on its own wherever it helps. You never have to name
+        it.
       </DocHeader>
 
       <H2 id="requirements">Requirements</H2>
@@ -31,6 +32,64 @@ export default function Installation() {
       <CodeBlock lang="claude" label="In Claude Code" code={INSTALL.marketplace} what="marketplace command" />
       <CodeBlock lang="claude" label="In Claude Code" code={INSTALL.install} what="install command" />
 
+      <H2 id="automatic">Claude uses it on its own</H2>
+      <p>
+        Like any well-behaved plugin skill, lucid doesn’t wait to be named. Every session starts with a few lines on
+        when it helps, so Claude reaches for it at the right moments:
+      </p>
+      <Table
+        head={["When", "Claude runs", "What you get"]}
+        rows={[
+          [
+            "Two or more agents are about to edit files in parallel",
+            <code key="s">/lucid:swarm</code>,
+            "lucid init, a shared plan, decisions settled before anyone spawns, and file claims.",
+          ],
+          [
+            "You change the plan while workers run",
+            <code key="r">/lucid:replan</code>,
+            "Every running worker gets the diff before its next tool call.",
+          ],
+          [
+            "You state a standing convention (“we never…”, “from now on…”)",
+            <code key="l">lucid learn</code>,
+            "A proposed team rule your team merges in a PR.",
+          ],
+          [
+            "A swarm ends",
+            <code key="d">/lucid:dream</code>,
+            "A consolidated log and up to three proposed lessons.",
+          ],
+        ]}
+      />
+      <p>
+        In a live test, a repo had no <code>.lucid/</code> and the prompt only asked for two tasks done in parallel by
+        two subagents. Claude ran <code>lucid init</code>, wrote the plan, logged two shared decisions before spawning,
+        and its workers claimed their files. One agent on an ordinary task gets none of this; the note says so.
+      </p>
+
+      <H2 id="team">Install it for a whole team</H2>
+      <p>
+        Commit this to the project’s <code>.claude/settings.json</code>. Teammates who trust the folder are offered the
+        marketplace, and each one installs the plugin once:
+      </p>
+      <CodeBlock
+        lang="text"
+        label=".claude/settings.json"
+        what="team settings"
+        code={`{
+  "extraKnownMarketplaces": {
+    "lucid": { "source": { "source": "github", "repo": "Redskull-127/lucid" } }
+  },
+  "enabledPlugins": { "lucid@lucid": true }
+}`}
+      />
+      <p>
+        To install it for everyone without asking, an organization admin can put the same two keys in managed settings.
+        Then commit <code>.claude/rules/</code> and <code>.lucid/</code>, so every teammate’s agents get the same{" "}
+        <Link href="/docs/team-rules">team rules</Link>.
+      </p>
+
       <H2 id="local">Try a local checkout</H2>
       <p>To develop lucid or try it without installing, load a clone for one session:</p>
       <CodeBlock
@@ -44,8 +103,8 @@ claude plugin validate ./lucid --strict`}
 
       <H2 id="init">Turn it on in a project</H2>
       <p>
-        lucid does nothing until a project opts in. In Claude Code, ask Claude to run <code>lucid init</code> in the project, then write
-        your plan in <code>.lucid/plan.md</code>:
+        Claude usually does this itself (see above). To do it by hand, ask Claude to run <code>lucid init</code> in the
+        project, then write your plan in <code>.lucid/plan.md</code>:
       </p>
       <CodeBlock code={`lucid init        # Claude runs this: the plugin puts lucid on its PATH`} what="lucid init" />
       <p>
@@ -75,6 +134,7 @@ claude plugin validate ./lucid --strict`}
           [<code key="6">.state/</code>, "Per-agent state, such as how far each agent has read the log.", "Ignored"],
           [<code key="7">.plan.prev</code>, "The last plan lucid saw, used to compute plan diffs.", "Ignored"],
           [<code key="8">.debug.jsonl</code>, <>Only with <code>LUCID_DEBUG=1</code>: every hook input.</>, "Ignored"],
+          [<code key="9">proposed/</code>, <>Not created by init. <code>lucid learn</code> puts team-rule proposals here.</>, "Commit"],
         ]}
       />
       <p>The plan template looks like this:</p>

@@ -1,8 +1,8 @@
 {
   "name": "lucid",
   "displayName": "Lucid",
-  "version": "0.4.0",
-  "description": "One shared dream for every Claude agent: a live plan, an evidence-backed decision/dead-end log and file claims that the lead, subagents and Agent-Teams teammates all see, with plan changes streamed to running workers before their next tool call.",
+  "version": "0.5.0",
+  "description": "One shared dream for every Claude agent: a live plan, an evidence-backed decision/dead-end log and file claims for parallel agents, plus team rules (.claude/rules/) that every agent is checked against, learned from chat corrections and PR reviews and approved through git.",
   "author": {
     "name": "Meer Tarbani",
     "url": "https://www.meertarbani.in"
@@ -16,7 +16,10 @@
     "subagents",
     "agent-teams",
     "planning",
-    "hooks"
+    "hooks",
+    "team-rules",
+    "agents-md",
+    "code-review"
   ],
   "icon": "./.claude-plugin/icon.png"
 }

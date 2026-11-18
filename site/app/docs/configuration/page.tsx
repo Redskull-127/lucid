@@ -28,6 +28,14 @@ export default function Configuration() {
             "Unclaimed files that one Bash command may change before lucid raises a blocker for everyone.",
           ],
           [
+            <code key="5">LUCID_RULES</code>,
+            <code key="5d">on</code>,
+            <>
+              Team rules: <code>on</code>, <code>observe</code> (record stats in <code>lucid rules</code>, show agents
+              nothing) or <code>off</code>. See <Link href="/docs/team-rules#safety">Team rules</Link>.
+            </>,
+          ],
+          [
             <code key="2">LUCID_ROOT</code>,
             "project dir",
             <>
@@ -54,15 +62,17 @@ export default function Configuration() {
       <p>
         Commit <code>plan.md</code>, <code>log.jsonl</code> and <code>digest.md</code> so teammates and future sessions
         share the dream. Per-agent state is git-ignored automatically by the <code>.gitignore</code> that{" "}
-        <code>lucid init</code> writes inside <code>.lucid/</code>.
+        <code>lucid init</code> writes inside <code>.lucid/</code>. For team rules, commit <code>.claude/rules/</code>{" "}
+        and <code>.lucid/proposed/</code> too. Rule stats live in <code>.lucid/.state/</code>, so they stay on each
+        machine.
       </p>
       <Table
         head={["Commit", "Ignored"]}
         rows={[
           [
             <>
-              <code>plan.md</code>, <code>log.jsonl</code>, <code>digest.md</code>, <code>.gitignore</code>,{" "}
-              <code>.gitattributes</code>
+              <code>plan.md</code>, <code>log.jsonl</code>, <code>digest.md</code>, <code>proposed/</code>,{" "}
+              <code>.gitignore</code>, <code>.gitattributes</code>, and <code>.claude/rules/</code>
             </>,
             <>
               <code>.state/</code>, <code>.plan.prev</code>, <code>.debug.jsonl</code>, <code>*.tmp</code>

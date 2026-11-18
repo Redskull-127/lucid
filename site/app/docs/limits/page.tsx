@@ -5,6 +5,31 @@ export const metadata = docMetadata("/docs/limits");
 
 const FAQ = [
   {
+    id: "automatic",
+    q: "Do I have to tell Claude to use lucid?",
+    a: (
+      <>
+        No. Each session starts with a few lines on when lucid helps, and the skills say to use them proactively. Claude
+        runs <code>/lucid:swarm</code> before parallel agents edit files, <code>/lucid:replan</code> when you change the
+        plan mid-build, and <code>lucid learn</code> when you state a standing convention. In live tests it did all of
+        this from prompts that never mentioned lucid. One agent on an ordinary task is told it needs none of it.
+      </>
+    ),
+  },
+  {
+    id: "agents-md",
+    q: "Why not just write a better AGENTS.md?",
+    a: (
+      <>
+        Keep it: <code>lucid rules export</code> writes your team rules into it for the tools that read it. But a long
+        file loaded once at the start is advice. Agents follow most rules, but rarely all of them in a long session, and
+        a correction one developer makes stays on that developer’s machine. <Link href="/docs/team-rules">Team
+        rules</Link> scope each rule to its files, check the mechanical ones on every edit, review the judgment ones
+        against the diff, and turn corrections into rules your team approves in a PR.
+      </>
+    ),
+  },
+  {
     id: "when",
     q: "When should I use it, and when not?",
     a: (
@@ -145,6 +170,16 @@ export default function Limits() {
           <strong>lucid makes the parts fit together, not correct.</strong> In a real feature, contracts settled up front
           kept every review finding off the seams between workers, but the review still found real bugs. Keep the review
           step.
+        </li>
+        <li>
+          <strong>Team-rule reviews are the agent checking itself.</strong> The review round makes an agent read its diff
+          against the rules and answer ✓ or ✗. That catches a lot, but it’s a prompt, not proof. Keep human review and CI
+          for what must hold. A <code>forbid</code> pattern is checked mechanically, but only on Edit, Write and
+          MultiEdit text. Bash writes are covered by the review round, not the pattern.
+        </li>
+        <li>
+          <strong>Checks run inside Claude Code only.</strong> Codex, Copilot and Cursor get the same rules as AGENTS.md
+          text, without lucid’s checks. Rule stats are per machine.
         </li>
         <li>
           <strong>POSIX only</strong> (macOS and Linux), because the log uses <code>flock</code> for locking.

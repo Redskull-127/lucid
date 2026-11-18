@@ -1,6 +1,6 @@
 ---
 name: replan
-description: Apply a mid-build change of plan to the shared lucid plan so every running agent picks it up before its next tool call.
+description: Apply a mid-build change of plan to the shared lucid plan so every running agent picks it up before its next tool call. Use proactively whenever the user changes requirements while lucid workers are running.
 argument-hint: <the change>
 ---
 

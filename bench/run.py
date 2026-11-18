@@ -4,8 +4,11 @@
   python3 bench/chart.py                 # renders assets/bench-*.svg
 
 Every run gets a fresh git repo and a `claude -p` session with project settings only (no user plugins,
-hooks or CLAUDE.md). Both arms get identical prompts and tools; the `lucid` arm only adds --plugin-dir
+hooks or CLAUDE.md). Every arm gets identical prompts and tools; the `lucid` arm only adds --plugin-dir
 and `lucid init`. A hidden acceptance test, which the agents never see, scores the final code.
+
+Team-rules scenarios (0.5) add arms: `md` (all 30 rules in one CLAUDE.md) and `native` (the same rules as
+.claude/rules/ files, which Claude Code loads by path). `lucid` uses the very same rule files plus the plugin.
 """
 import argparse
 import concurrent.futures
@@ -80,6 +83,131 @@ ok("remove", lambda: c.items == ["pear", "apple"])
 
 SCENARIOS["replan-late"] = dict(SCENARIOS["replan-early"], trigger=all)
 
+# ---- team rules (0.5): 30 rules, 3 of which apply to the task; the prompt never mentions them ----
+LOG = "def warn(msg):\n    pass\n\n\ndef info(msg):\n    pass\n"
+RELEVANT = [  # (file, paths, lucid keys, text)
+    ("shop/logging.md", ["shop/**"], "forbid: '\\bprint\\('\n",
+     "# Log through shop.log, never print\nCode in shop/ reports problems with `shop.log.warn(msg)` or `shop.log.info(msg)`. "
+     "Never call print(): this service's stdout is its JSON API stream."),
+    ("shop/money.md", ["shop/**"], "review: true\n",
+     "# Money functions reject negative amounts\nEvery function in shop/ that takes a price or an amount raises ValueError "
+     "when it is negative."),
+    ("shop/docstrings.md", ["shop/**/*.py"], "review: true\n",
+     "# Every public function has a docstring\nEach public function and method in shop/ starts with a one-line docstring "
+     "saying what it returns."),
+]
+OTHER = [(a, b) for a, b in (
+    ("web/components", "Components use named exports, never default exports."), ("web/styles", "No inline styles; use the CSS modules next to the component."),
+    ("web/hooks", "Custom hooks start with `use` and live in web/hooks/."), ("web/i18n", "Every user-facing string goes through t() from web/i18n."),
+    ("web/a11y", "Every icon-only button has an aria-label."), ("web/images", "Images use the <Img> wrapper so they get lazy loading."),
+    ("api/handlers", "Handlers return { data } or { error }, never a bare value."), ("api/auth", "Every route checks session.role before reading data."),
+    ("api/pagination", "List endpoints paginate with a cursor, never an offset."), ("api/errors", "Throw ApiError(code, message); never throw strings."),
+    ("api/timeouts", "Outbound HTTP calls set a 5 s timeout."), ("api/ids", "Ids in URLs are opaque strings, never database integers."),
+    ("db/migrations", "Every migration has a down step."), ("db/queries", "No SELECT *; list the columns."),
+    ("db/transactions", "Writes that touch two tables run in one transaction."), ("db/indexes", "A new foreign key gets an index in the same migration."),
+    ("db/naming", "Tables are plural snake_case; columns singular snake_case."), ("infra/terraform", "Every resource carries owner and env tags."),
+    ("infra/secrets", "Secrets come from the vault module, never from tfvars."), ("infra/docker", "Images pin a digest, not a tag."),
+    ("scripts/shell", "Shell scripts start with `set -euo pipefail`."), ("docs/style", "Docs use sentence-case headings."),
+    ("docs/links", "Link to code by path, never by line number."), ("tests/fixtures", "Fixtures live next to the test that uses them."),
+    ("tests/time", "Tests freeze time with the clock fixture; never sleep."), ("tests/network", "Unit tests never touch the network."),
+    ("mobile/navigation", "Screens register in mobile/routes.ts."))]
+
+
+def rules_files(arm):
+    if arm == "md":  # one big instruction file, the way most teams write it
+        secs = ["## %s (applies to `%s`)\n%s" % (t.split("\n")[0][2:], ", ".join(ps), t.split("\n", 1)[1]) for _, ps, _, t in RELEVANT]
+        secs += ["## %s (applies to `%s/**`)\n%s" % (b.split(";")[0].rstrip("."), p.split("/")[0], b) for p, b in OTHER]
+        return {"CLAUDE.md": "# Team rules\n\n" + "\n\n".join(secs) + "\n"}
+    files = {"CLAUDE.md": "# shop\nTeam rules live in .claude/rules/.\n"}  # identical for native and lucid: the plugin is the only difference
+    for f, ps, keys, t in RELEVANT:
+        files[".claude/rules/" + f] = "---\npaths: [%s]\n%s---\n%s\n" % (", ".join('"%s"' % x for x in ps), keys, t)
+    for p, b in OTHER:
+        files[".claude/rules/%s.md" % p] = "---\npaths: [\"%s/**\"]\n---\n# %s\n%s\n" % (p.split("/")[0], b.split(";")[0].rstrip("."), b)
+    return files
+
+
+RULES_TASK = ("Implement these in the shop package:\n1. discount(price, pct) in shop/pricing.py: the price reduced by pct percent, "
+              "rounded down to an int.\n2. Cart.remove(item) in shop/cart.py: remove one occurrence of item.\n3. Cart.count(item) "
+              "in shop/cart.py: how many times item is in the cart.\n4. Cart.add(item) should report a warning when the item has "
+              "no price in PRICES, but still add it.\nReport briefly.")
+RULES_CHECK = """
+import contextlib, io
+import shop.log as L
+calls = []
+L.warn = L.info = lambda *a, **k: calls.append(a)
+import shop.pricing as P
+from shop.cart import Cart
+c = Cart(); c.add("apple"); c.add("pear"); c.add("apple"); c.remove("apple")
+ok("task_discount", lambda: P.discount(200, 10) == 180)
+ok("task_remove", lambda: c.items == ["pear", "apple"])
+ok("task_count", lambda: c.count("apple") == 1)
+out, err = io.StringIO(), io.StringIO()
+with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+    c.add("kiwi")
+ok("task_warns", lambda: "kiwi" in c.items and bool(calls or out.getvalue() or err.getvalue()))
+src = open("shop/cart.py").read() + open("shop/pricing.py").read()
+ok("rule_log_not_print", lambda: bool(calls) and out.getvalue() == "" and "print(" not in src)
+def neg():
+    try:
+        P.discount(-5, 10)
+    except ValueError:
+        return True
+    return False
+ok("rule_negative", neg)
+ok("rule_docstrings", lambda: all((f.__doc__ or "").strip() for f in (P.discount, Cart.remove, Cart.count)))
+"""
+SCENARIOS["rules"] = {"arms": ("lucid", "native", "md"), "files": rules_files, "prompts": [RULES_TASK], "check": RULES_CHECK}
+SCENARIOS["rules-control"] = {"arms": ("lucid", "native"), "files": rules_files, "prompts": SCENARIOS["control"]["prompts"],
+                              "check": SCENARIOS["control"]["check"]}
+# A teammate's session: same repo, none of session 1's machine-local auto memory. lucid isn't set up beforehand (no
+# `lucid init`): this also tests that Claude reaches for `lucid learn` unprompted. Between sessions the team "merges
+# the PR": proposals move into .claude/rules/. Whatever the baseline wrote into the repo (a CLAUDE.md) stays too.
+# Long session (pre-registered before any run, 2026-11-18): research finds agents slip as sessions get longer, so the
+# shop rules apply in turns 1, 6 and 7 of ONE continued session, with unrelated work and a context-heavy turn between.
+# Same 30 rules and the same three arms as `rules`; pass = every task and every rule on every new shop function.
+STEPS = [("validates", "auth"), ("caches", "storage"), ("retries", "queue"), ("logs", "metrics"), ("batches", "billing")] * 3
+DOCS = {"docs/%s.md" % n: "# %s\n\n" % n.title() + "\n\n".join(
+    "## %s %d\n%s" % (n.title(), k, " ".join("The %s service %s step %d of request %d, then hands off to the %s layer."
+                                             % (n, v, k, j, w) for j, (v, w) in enumerate(STEPS)))
+    for k in range(12)) + "\n" for n in ("gateway", "billing", "search", "notifications", "storage")}
+LONG_TURNS = [
+    "Add discount(price, pct) to shop/pricing.py: the price reduced by pct percent, rounded down to an int. Report briefly.",
+    "Create web/components/Button.tsx: a small React button that takes label and onClick. Report briefly.",
+    "Create db/migrations/001_users.sql creating a users table with id, email and created_at. Report briefly.",
+    "Read every file in docs/ and write docs/SUMMARY.md: a 10-line summary of how the system fits together. Report briefly.",
+    "Create infra/main.tf with one S3 bucket for uploads. Report briefly.",
+    "In shop/cart.py add Cart.remove(item), removing one occurrence, and Cart.count(item). Also, Cart.add(item) should "
+    "report a warning when the item has no price in PRICES, but still add it. Report briefly.",
+    "Add refund(amount, pct) to shop/pricing.py: the part of amount refunded at pct percent, rounded down to an int. "
+    "Report briefly.",
+]
+LONG_CHECK = RULES_CHECK.replace('ok("rule_negative", neg)', """ok("task_refund", lambda: P.refund(200, 10) == 20)
+def neg_refund():
+    try:
+        P.refund(-5, 10)
+    except ValueError:
+        return True
+    return False
+ok("rule_negative", lambda: neg() and neg_refund())""").replace(
+    "(P.discount, Cart.remove, Cart.count)", "(P.discount, P.refund, Cart.remove, Cart.count)")
+SCENARIOS["rules-long"] = {"arms": ("lucid", "native", "md"), "files": lambda arm: dict(rules_files(arm), **DOCS),
+                           "prompts": LONG_TURNS, "continue": True, "check": LONG_CHECK}
+TEAMMATE = {"CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1"}
+SCENARIOS["teammate"] = {"init": False, "check": SCENARIOS["memory"]["check"], "prompts": [
+    "Add discount(price, pct) to shop/pricing.py, returning the price reduced by pct percent. From now on this is team "
+    "policy for everyone working in this repo, not just this task: every money function returns whole integers rounded "
+    "DOWN and raises ValueError for negative inputs.",
+    ("Add tax(price, rate_pct) to shop/pricing.py that returns the price including tax.", TEAMMATE)]}
+
+
+def merge_proposals(d):
+    src = os.path.join(d, ".lucid", "proposed")
+    names = sorted(os.listdir(src)) if os.path.isdir(src) else []
+    os.makedirs(os.path.join(d, ".claude", "rules"), exist_ok=True)
+    for n in names:
+        os.replace(os.path.join(src, n), os.path.join(d, ".claude", "rules", n))
+    return len(names)
+
 CHECK_HEADER = """
 import json
 res = {}
@@ -109,10 +237,15 @@ def make_repo(scenario, arm):
     if scenario.startswith("replan"):
         with open(os.path.join(d, "PLAN.md"), "w") as f:
             f.write(PLAN)
+    extra = SCENARIOS[scenario].get("files")
+    for name, text in (dict(extra(arm), **{"shop/log.py": LOG}) if extra else {}).items():
+        os.makedirs(os.path.dirname(os.path.join(d, name)), exist_ok=True)
+        with open(os.path.join(d, name), "w") as f:
+            f.write(text)
     sh(["git", "init", "-q"], d)
     sh(["git", "-c", "user.email=b@b", "-c", "user.name=b", "add", "-A"], d)
     sh(["git", "-c", "user.email=b@b", "-c", "user.name=b", "commit", "-qm", "init"], d)
-    if arm == "lucid":
+    if arm == "lucid" and SCENARIOS[scenario].get("init", True):
         sh([sys.executable, os.path.join(PLUGIN, "bin", "lucid"), "init"], d)
         if scenario.startswith("replan"):  # one plan file for both arms: lucid tracks PLAN.md through a symlink
             os.remove(os.path.join(d, ".lucid", "plan.md"))
@@ -122,13 +255,13 @@ def make_repo(scenario, arm):
     return d
 
 
-def claude(d, prompt, arm):
+def claude(d, prompt, arm, env=None, cont=False):
     cmd = ["claude", "-p", "--model", ARGS.model, "--setting-sources", "project", "--output-format", "json",
-           "--allowedTools", TOOLS]
+           "--allowedTools", TOOLS] + (["--continue"] if cont else [])
     if arm == "lucid":
         cmd += ["--plugin-dir", PLUGIN]
     t0 = time.time()
-    r = subprocess.run(cmd, input=prompt, cwd=d, capture_output=True, text=True, env=ENV, timeout=900)
+    r = subprocess.run(cmd, input=prompt, cwd=d, capture_output=True, text=True, env=dict(ENV, **(env or {})), timeout=900)
     try:
         out = json.loads(r.stdout)
     except ValueError:
@@ -164,8 +297,11 @@ def run_one(scenario, arm, i):
     if scenario.startswith("replan"):
         threading.Thread(target=replan_trigger, args=(d, stop, info, SCENARIOS[scenario]["trigger"]), daemon=True).start()
     res = {"scenario": scenario, "arm": arm, "run": i, "model": ARGS.model, "cost": 0.0, "turns": 0, "tokens": 0, "wall_s": 0.0}
-    for prompt in SCENARIOS[scenario]["prompts"]:  # memory: two separate sessions, nothing carried but the repo
-        r = claude(d, prompt, arm)
+    for k, prompt in enumerate(SCENARIOS[scenario]["prompts"]):  # memory: two separate sessions, nothing carried but the repo
+        prompt, env = prompt if isinstance(prompt, tuple) else (prompt, None)
+        if scenario == "teammate" and k == 1 and arm == "lucid":
+            res["merged_proposals"] = merge_proposals(d)
+        r = claude(d, prompt, arm, env, cont=k > 0 and SCENARIOS[scenario].get("continue", False))
         for k in ("cost", "turns", "tokens", "wall_s"):
             res[k] += r.get(k, 0) or 0
         with SPENT_LOCK:
@@ -196,7 +332,8 @@ if __name__ == "__main__":
     ap.add_argument("--out", default=os.path.join(HERE, "results.jsonl"))
     ap.add_argument("--budget", type=float, default=float("inf"), help="USD; no new runs start once spent")
     ARGS = ap.parse_args()
-    jobs = [(s, arm, i) for i in range(ARGS.runs) for s in ARGS.scenarios.split(",") for arm in ("lucid", "baseline")]
+    jobs = [(s, arm, i) for i in range(ARGS.runs) for s in ARGS.scenarios.split(",")
+            for arm in SCENARIOS[s].get("arms", ("lucid", "baseline"))]
     with concurrent.futures.ThreadPoolExecutor(ARGS.j) as pool, open(ARGS.out, "a") as out:
         for fut in concurrent.futures.as_completed([pool.submit(run_one, *j) for j in jobs]):
             r = fut.result()

@@ -1,6 +1,6 @@
 ---
 name: lucid
-description: Shared memory ("the dream") for multi-agent work. One live plan, an evidence-backed log of decisions and dead ends, and file claims that the lead, subagents and Agent-Teams teammates all see. Use when starting a multi-step feature, before spawning subagents or teammates, when the user changes the plan mid-build, or when the user mentions lucid.
+description: Shared memory ("the dream") for multi-agent work and team rules for every agent. One live plan, an evidence-backed log of decisions and dead ends, file claims, and `.claude/rules/` checked with `forbid` and `review`. Use when starting a multi-step feature, before spawning subagents or teammates, when the user changes the plan mid-build, when a `[lucid]` note asks for something, or when the user mentions lucid.
 ---
 
 # Lucid protocol
@@ -31,3 +31,11 @@ Rules:
 - The plan is `.lucid/plan.md`. Edit it in place with the Edit tool and every running agent gets the diff automatically.
 - A `PLAN CHANGED` note is the user's latest intent and overrides your original brief. If it touches files you own or claimed, apply it and log a decision.
 - When spawning workers, don't paste the plan or earlier findings into the prompt, because they get those injected. Give the task, the files to claim and what "done" means.
+
+## Team rules
+
+`.claude/rules/*.md` are the team's rules. Claude Code loads each one when you touch a file under its `paths:`. lucid checks them too:
+
+- A `[lucid] team rule …` note after an edit means a line you just added matches that rule's `forbid` pattern. Fix it, or say in one line why it's an exception.
+- Before a turn ends, lucid may ask you to check your diff against the `review: true` rules for the files you touched. Do it honestly: read the diff, fix what breaks a rule, then end with one line per rule, `✓ <rule>` or `✗ <rule> path:line <why>`.
+- When the user states a standing convention ("we never…", "from now on…"), run `lucid learn "<rule + why>" --paths '<glob>' -e path:line --source chat`. Proposals stay inactive until a PR merges them (`/lucid:learn`).

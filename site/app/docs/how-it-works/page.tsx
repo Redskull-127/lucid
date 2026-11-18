@@ -30,7 +30,19 @@ export default function HowItWorks() {
             <>
               <strong>SessionStart</strong> (also after <code>/compact</code>), <strong>SubagentStart</strong>
             </>,
-            "Injects the plan, the live memory and active claims, within a fixed budget. Subagents and Agent-Teams teammates start with the full shared context instead of a one-paragraph brief.",
+            "Injects the plan, the live memory and active claims, within a fixed budget. Subagents and Agent-Teams teammates start with the full shared context instead of a one-paragraph brief. When there’s nothing to share yet (or no .lucid/ at all), a new session instead gets a few lines on when to use lucid, so Claude reaches for it without being asked.",
+          ],
+          [
+            <>
+              <strong>PreToolUse</strong> on edits, with team rules
+            </>,
+            "Checks the lines an edit adds against the forbid patterns of the rules whose paths match the file, and returns any hit with the edit’s result. Records which rules matched, for lucid rules. Never denies the edit.",
+          ],
+          [
+            <>
+              <strong>Stop</strong>, <strong>SubagentStop</strong> with team rules
+            </>,
+            "Once per turn (once per subagent): if the agent touched files that review rules cover, or a forbid hit is still in the code, asks it to check its diff against those rules before finishing.",
           ],
           [
             <>
@@ -92,7 +104,8 @@ export default function HowItWorks() {
         Every hook goes through a tiny shell guard first. It walks up from the project directory looking for{" "}
         <code>.lucid/</code>, stopping at the repo root. If the project hasn’t opted in, or <code>python3</code> isn’t
         available, it exits without starting Python, so projects without lucid pay a few shell builtins and nothing
-        more.
+        more. The one exception is SessionStart, which starts Python once per session to print the note on when to use
+        lucid.
       </p>
 
       <H2 id="digest-delta">Digest and delta</H2>
@@ -168,6 +181,10 @@ export default function HowItWorks() {
         When a subagent stops or a task completes, lucid checks whether the agent edited files but logged nothing. If so,
         it asks the agent, once, to record its decisions, dead ends and non-obvious facts before finishing. Changing the
         plan counts as reporting. A stopping subagent’s claims are then released.
+      </p>
+      <p>
+        The <Link href="/docs/team-rules">team-rules</Link> review uses the same gate. When both apply, the agent gets
+        one combined message, and <code>stop_hook_active</code> keeps it from looping.
       </p>
 
       <H2 id="bash-writes">Bash write detection</H2>

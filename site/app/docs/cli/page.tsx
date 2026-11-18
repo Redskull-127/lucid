@@ -24,11 +24,13 @@ lucid [--as ME] supersede ID [ID ...] [--why WHY]
 lucid [--as ME] log [--since SINCE]
 lucid [--as ME] status
 lucid [--as ME] wait [--timeout SECONDS]
-lucid [--as ME] end`}
+lucid [--as ME] end
+lucid learn TEXT [--paths GLOB [GLOB ...]] [-e EVIDENCE [EVIDENCE ...]] [--source SOURCE]
+lucid rules [export [--check]]`}
       />
       <p>
-        Every command accepts <code>-h</code> / <code>--help</code>. Commands other than <code>init</code> need a{" "}
-        <code>.lucid/</code> directory and exit with{" "}
+        Every command accepts <code>-h</code> / <code>--help</code>. Commands other than <code>init</code>,{" "}
+        <code>learn</code> and <code>rules</code> need a <code>.lucid/</code> directory and exit with{" "}
         <code>lucid: no .lucid/ found here; run `lucid init` first</code> otherwise.
       </p>
 
@@ -155,9 +157,44 @@ lucid release 'src/db/**'     # just this one`} />
       <H2 id="end">end</H2>
       <CodeBlock lang="text" copy={false} code={`lucid end`} />
       <p>
-        Ends the swarm. From then on, hooks only add one line at session start pointing at the old plan and log, so solo
-        work afterwards doesn’t pay for coordination nobody needs. The next <code>lucid init</code> moves the plan and log
+        Ends the swarm. From then on, the swarm hooks only add one line at session start pointing at the old plan and
+        log, so solo work afterwards doesn’t pay for coordination nobody needs. <Link href="/docs/team-rules">Team
+        rules</Link> keep working. The output suggests <code>/lucid:dream</code> to turn the swarm’s lessons into rule
+        proposals. The next <code>lucid init</code> moves the plan and log
         to <code>.lucid/archive/</code> and starts fresh; <code>rm .lucid/ended</code> resumes the old swarm instead.
+      </p>
+
+      <H2 id="learn">learn</H2>
+      <CodeBlock
+        lang="text"
+        copy={false}
+        code={`lucid learn TEXT [--paths GLOB ...] [-e path:line ...] [--source chat|pr#123|dream|review]`}
+      />
+      <p>
+        Proposes a team rule. It writes <code>.lucid/proposed/&lt;slug&gt;.md</code> in the rule format, with{" "}
+        <code>paths</code>, <code>source</code>, <code>evidence</code> and the date in its frontmatter. Claude Code
+        doesn’t load that folder, so the proposal does nothing until a PR moves it into <code>.claude/rules/</code>. A
+        rule whose text already appears in a proposal or a rule is refused with <code>already there</code>. Run in a repo
+        without <code>.lucid/</code>, it creates one, so proposing the first rule opts the repo in.
+      </p>
+      <CodeBlock
+        what="learn example"
+        code={`lucid learn "Money is integer cents, never float; floats lost a cent in the 2025 refund bug" \
+  --paths 'src/billing/**' -e src/billing/refund.ts:88 --source pr#412`}
+      />
+
+      <H2 id="rules">rules</H2>
+      <CodeBlock lang="text" copy={false} code={`lucid rules [export [--check]]`} />
+      <p>
+        <code>lucid rules</code> lists every rule in <code>.claude/rules/</code>: its lucid keys, paths and this
+        machine’s counts of <em>match</em>, <em>forbid</em>, <em>unresolved</em> and <em>review</em>. It also lists
+        rules whose paths never matched an edit, rules skipped because of a bad regex, and proposals waiting in{" "}
+        <code>.lucid/proposed/</code>.
+      </p>
+      <p>
+        <code>lucid rules export</code> writes a generated block between{" "}
+        <code>{`<!-- lucid:rules -->`}</code> markers in AGENTS.md for Codex, Copilot, Cursor and review bots. The rest
+        of the file is left alone. <code>--check</code> writes nothing and exits 1 if the block is out of date, for CI.
       </p>
 
       <Callout>

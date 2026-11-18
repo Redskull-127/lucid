@@ -7,7 +7,8 @@
 <p align="center">
   <b>One shared dream for every Claude.</b><br>
   A live plan, an evidence-backed memory and file claims shared by the lead agent, its subagents and Agent-Teams teammates.<br>
-  Change the plan partway through and every running worker sees the change before its next action.
+  Change the plan partway through and every running worker sees the change before its next action.<br>
+  Plus <b>team rules</b> every agent is checked against, learned from corrections and PR reviews, approved in a PR.
 </p>
 
 <p align="center">
@@ -22,6 +23,7 @@
 <p align="center">
   <a href="#-install">Install</a> ·
   <a href="#-how-it-works">How it works</a> ·
+  <a href="#-team-rules">Team rules</a> ·
   <a href="#-benchmark">Benchmark</a> ·
   <a href="#-commands">Commands</a> ·
   <a href="#-seen-in-a-real-run">Real run</a> ·
@@ -71,7 +73,44 @@ The memory is wired in through hooks, so agents can't forget to check it. Agents
 | **Stop** · **SessionEnd** | Releases a session's claims when its turn or the session ends, so an idle agent never blocks others. |
 | **UserPromptSubmit** while workers are busy | Reminds the lead to write a chat change of plan into `plan.md` first, so running workers get it and it survives `/compact`. |
 
-> lucid stays **inactive** until a project opts in with `lucid init`. In every other project a tiny shell guard checks for `.lucid/` and exits without starting Python. It works from repo subfolders and git worktrees, which share the main checkout's dream.
+> **You never have to name lucid.** Every session starts with a few lines on when it helps, so Claude runs `/lucid:swarm` before parallel agents edit files, `/lucid:replan` when you change the plan mid-build, and `lucid learn` when you state a standing convention. In a live test with no `.lucid/` and a prompt that only asked for two tasks done by two subagents in parallel, Claude ran `lucid init`, wrote the plan, logged two shared decisions and had its workers claim their files. The rest of lucid stays inactive until a project has `.lucid/`: before that, a tiny shell guard exits on every other hook without starting Python. It works from repo subfolders and git worktrees, which share the main checkout's dream.
+
+## 📏 Team rules
+
+Teams keep their conventions, review checks and hard-won lessons in AGENTS.md or CLAUDE.md. Agents read those files, but nothing makes them follow every rule:
+- **Each rule is usually followed, but rarely all of them.** In [OctoBench](https://arxiv.org/abs/2601.10343), 80–86% of individual rule checks pass, but only 10–28% of tasks follow every rule, and it gets worse as sessions get longer.
+- **The files are advisory by design.** Anthropic's [docs](https://code.claude.com/docs/en/memory) say Claude "treats them as context, not enforced configuration."
+- **What one developer teaches their agent stays on their machine.** Claude Code's auto memory is machine-local.
+
+lucid builds on Claude Code's own path-scoped rule files, `.claude/rules/*.md`, which load when an agent touches a matching file. It adds two optional keys that Claude Code ignores:
+
+```markdown
+---
+paths: ["src/api/**/*.ts"]
+forbid: 'console\.log\('   # lines an agent ADDS must not match
+review: true               # checked against the diff before the agent finishes a turn
+---
+# Log through logger, never console
+Every API handler logs through src/lib/logger.ts so request ids are kept.
+```
+
+| | What happens |
+|---|---|
+| **`forbid`** | When an edit adds a matching line, the agent gets the hit with the edit's result and fixes it or says why it's an exception. Lines that were already there never count. |
+| **`review: true`** | Before the agent ends a turn that touched matching files, it's asked once to read its diff against these rules and answer ✓ or ✗ per rule. Subagents too. |
+| **Learning** | A correction in chat ("we never…", "from now on…"), PR review threads (`/lucid:learn pr 412`, `/lucid:learn recent 30`), and `/lucid:dream` become proposals in `.lucid/proposed/`. They do nothing until a PR moves them into `.claude/rules/`, so the team reviews each rule like code. |
+| **Stats** | `lucid rules` shows each rule's matches, `forbid` hits, unresolved hits and review rounds, plus rules that never matched an edit. |
+| **Other tools** | `lucid rules export` writes the rules into a marked AGENTS.md block for Codex, Copilot, Cursor and review bots. `--check` fails CI on drift. |
+
+**Cautious by default.** Nothing blocks a write. Every reminder is capped. Rules are regexes, never shell commands, so a PR can't slip a command into your agents' hooks. lucid never commits or pushes. `LUCID_RULES=observe` records stats without showing agents anything, so a team can watch a week for false positives before turning it on.
+
+**What the benchmark shows: no adherence gain yet.** In 115 runs on Haiku and Opus, every arm followed every rule: 30 rules in one long CLAUDE.md, the same rules as native `.claude/rules/` files, and the same files under lucid. That held in a 7-turn session where the rules mattered again after 80 KB of docs had been read. A teammate session with none of the first session's memory also picked up a chat-stated policy in every run without lucid, because Claude wrote it into a CLAUDE.md itself. lucid cost 5–32% more per run, mostly for the review round. So lucid didn't make Claude follow rules better on these tasks. What it adds is:
+- a mechanical check that runs anyway,
+- a record of what each rule caught,
+- a reviewed path from correction to rule (Claude ran `lucid learn` unprompted in 11 of 13 runs),
+- one set of rules for every tool.
+
+Keep `review: true` for the few rules worth a review round. [Results below](#team-rules-05) · [Team rules docs](https://lucid.meertarbani.in/docs/team-rules).
 
 ## 📊 Benchmark
 
@@ -207,7 +246,38 @@ Per run, lucid costs 10–13% more, because it does the extra work the change re
 
 </details>
 
-To reproduce, run `python3 bench/run.py --runs 8 -j 4` (Haiku, about $1.50), or add `--model opus --budget 30` (about $1 per run). Then run `python3 bench/chart.py`. Raw results are in [`bench/results.jsonl`](bench/results.jsonl). The monorepo rows came from a private harness that names files in that repo, so they can't be reproduced from here. Their raw rows are included, anonymized. The samples are small (3–10 runs per arm). To keep spend down, the memory scenario ran on Haiku in the demo repo only. Treat this as a strong signal, not a paper.
+### Team rules (0.5)
+
+Do agents follow team rules better with lucid? Three arms got the same 30 rules, 3 of which applied to the task, and an identical prompt that never mentioned them:
+- **one CLAUDE.md** holding all 30 rules;
+- **native**: the same rules as `.claude/rules/` files, which Claude Code loads by path;
+- **lucid**: the same rule files plus the plugin.
+
+The three rules that applied were: log through `shop.log`, never `print()` (a `forbid` rule); money functions reject negative amounts; and every public function has a docstring (both `review` rules). A hidden test checked the task and all three rules.
+
+| Scenario | Model | lucid | native rules | one CLAUDE.md |
+|---|---|---|---|---|
+| One task, 4 changes | Haiku 5.5 | 8/8 · $0.018 · 36 s | 8/8 · $0.014 · 24 s | 8/8 · $0.014 · 23 s |
+| | Opus 5.5 | 5/5 · $0.49 · 50 s | 5/5 · $0.47 · 47 s | 5/5 · $0.44 · 39 s |
+| 7-turn session (rules matter in turns 1, 6, 7) | Haiku 5.5 | 8/8 · $0.77 · 114 s | 8/8 · $0.58 · 81 s | 8/8 · $0.60 · 80 s |
+| Simple task, rules present | Haiku 5.5 | 8/8 · $0.014 · 21 s | 8/8 · $0.012 · 16 s | |
+| | Opus 5.5 | 5/5 · $0.46 · 40 s | 5/5 · $0.41 · 34 s | |
+
+| Teammate picks up a policy stated in chat | Model | lucid | without lucid |
+|---|---|---|---|
+| A fresh session, with none of the first session's memory | Haiku 5.5 | 8/8 · $0.022 (`lucid learn` unprompted in 6/8) | 8/8 · $0.024 |
+| | Opus 5.5 | 5/5 · $0.76 (`lucid learn` unprompted in 5/5) | 5/5 · $0.76 |
+
+Cells show runs passed, mean cost and mean time per run. The 115 runs cost $35.49.
+
+- **No adherence gain on these tasks.** Every arm passed every run, including a single 30-rule CLAUDE.md, on both models and across a 7-turn session.
+- **The cost is the review round:** +$0.004 and +12 s per run on Haiku (+29%), +$0.025 and +3 s on Opus (+5%), and +$0.19 and +33 s (+32%) over the 7-turn session.
+- **The learning loop works unprompted.** Nothing in the prompt mentioned lucid, yet Claude proposed the policy as a team rule in 11 of 13 lucid runs. Without lucid, Claude wrote the policy into a new CLAUDE.md itself in all 13 runs, so the teammate passed either way. The difference is the format: an unscoped CLAUDE.md note, or a path-scoped rule proposal that waits for review.
+- **Untested:** hundreds of rules, sessions long enough to compact, large repos, and rules a model is less inclined to follow. That's where the research finds agents slip.
+
+To reproduce, run `python3 bench/run.py --scenarios rules,rules-long,teammate,rules-control --runs 8 -j 4` (Haiku, about $17, mostly the 7-turn session).
+
+To reproduce the plan-change results, run `python3 bench/run.py --runs 8 -j 4` (Haiku, about $1.50), or add `--model opus --budget 30` (about $1 per run). Then run `python3 bench/chart.py`. Raw results are in [`bench/results.jsonl`](bench/results.jsonl). The monorepo rows came from a private harness that names files in that repo, so they can't be reproduced from here. Their raw rows are included, anonymized. The samples are small (3–10 runs per arm). To keep spend down, the memory scenario ran on Haiku in the demo repo only. Treat this as a strong signal, not a paper.
 
 ## 📦 Install
 
@@ -216,7 +286,7 @@ To reproduce, run `python3 bench/run.py --runs 8 -j 4` (Haiku, about $1.50), or 
 /plugin install lucid@lucid
 ```
 
-Then turn it on per project. Ask Claude to run `lucid init` (the plugin puts `lucid` on Claude's PATH), or just start with `/lucid:swarm`, which does it for you. Write your plan in `.lucid/plan.md`.
+That's all. Claude sets lucid up in a project the first time it helps: `lucid init` before a swarm, or `lucid learn` for the first team rule (the plugin puts `lucid` on Claude's PATH). To start one yourself, run `/lucid:swarm <feature>`, or ask Claude to run `lucid init` and write your plan in `.lucid/plan.md`.
 
 <details>
 <summary>Develop or try a local checkout</summary>
@@ -235,7 +305,10 @@ claude plugin validate ./lucid --strict
 |---|---|
 | `/lucid:swarm <feature>` | Writes the plan, splits the work by file ownership, settles shared decisions up front, then spawns workers that share the dream. |
 | `/lucid:replan <change>` | Changes direction mid-build. Running workers get the diff before their next action. |
-| `/lucid:dream` | Consolidates a long memory: merges duplicates, retires stale entries, and suggests lessons for CLAUDE.md. Runs only when you invoke it. |
+| `/lucid:dream` | Consolidates a long memory: merges duplicates, retires stale entries, and proposes lasting lessons as team rules. Suggested after `lucid end`. |
+| `/lucid:learn [pr N \| recent N \| import \| promote]` | Turns corrections, PR review threads and an existing CLAUDE.md or AGENTS.md into team rules, and walks proposals through to a PR. |
+
+You can run these yourself, but you don't have to: Claude starts them when they fit.
 
 **CLI** (on the agents' PATH, and usable from your own terminal, where your notes reach agents as coming from `human`):
 
@@ -248,7 +321,9 @@ lucid supersede 12 --why "switched to sessions"
 lucid status        # the digest agents see
 lucid log --since 40
 lucid wait          # the lead runs this in the background: it returns when a worker logs a blocker
-lucid end           # the swarm is done: hooks go quiet, plan and log stay (`lucid init` archives them)
+lucid end           # the swarm is done: swarm hooks go quiet, plan and log stay (`lucid init` archives them)
+lucid learn "never use moment.js; use date-fns" --paths 'src/**' --source pr#412   # propose a team rule
+lucid rules         # team rules with this machine's stats; `lucid rules export [--check]` for AGENTS.md
 ```
 
 > 💡 For parallel **full** Claude instances, enable Claude Code's Agent Teams with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. lucid doesn't spawn agents itself; it keeps the ones Claude Code spawns in sync.
@@ -305,6 +380,8 @@ lucid makes the parts fit together. It doesn't make them correct, so keep the re
 - **Parallelism helps decoupled work.** Keep tightly coupled changes with a single agent; `/lucid:swarm` says so too.
 - **Single agent across sessions:** Claude Code's built-in auto-memory already carries a policy into the next session, and the benchmark shows parity there. lucid earns its keep when **several agents work at once**.
 - **Bash write detection is a heuristic.** It catches redirects, `tee`, `cp`/`mv`/`rm`, `sed -i` and Python writes, but not every way a program can write a file. During a swarm, a `git status` taken before and after each Bash call catches the rest after the fact. That adds about 0.2 s per Bash call on a 12k-file repo, and only while a swarm holds claims. If another agent writes during that window, the write may be blamed on the caller.
+- **Team-rule reviews are the agent checking itself.** A review round is a prompt, not proof, so keep human review and CI for what must hold. `forbid` is checked mechanically, but only on Edit, Write and MultiEdit text; Bash writes are covered by the review round.
+- **Rule checks run inside Claude Code only.** Other tools get the same rules as AGENTS.md text. Rule stats are per machine.
 - **POSIX only** (macOS and Linux), because the log uses `flock` for locking.
 
 ## ⚙️ Configuration
@@ -314,9 +391,19 @@ lucid makes the parts fit together. It doesn't make them correct, so keep the re
 | `LUCID_CLAIM_TTL` | `1200` | Seconds without activity from a claim's owner before the claim lapses. |
 | `LUCID_STRAY_ALARM` | `20` | Unclaimed files that one Bash command may change before lucid raises a blocker for everyone. |
 | `LUCID_ROOT` | project dir | Where `.lucid/` lives, for worktrees outside the repo. |
+| `LUCID_RULES` | `on` | Team rules: `on`, `observe` (record stats, show agents nothing) or `off`. |
 | `LUCID_DEBUG` | unset | `1` logs every hook input to `.lucid/.debug.jsonl`. |
 
-Commit `plan.md`, `log.jsonl` and `digest.md` so teammates and future sessions share the dream. Per-agent state is git-ignored automatically.
+Commit `plan.md`, `log.jsonl` and `digest.md` so teammates and future sessions share the dream, and `.claude/rules/` and `.lucid/proposed/` for team rules. Per-agent state and rule stats are git-ignored automatically.
+
+To offer the plugin to everyone who opens the repo, commit this to `.claude/settings.json` (organization admins can force it with managed settings):
+
+```json
+{
+  "extraKnownMarketplaces": { "lucid": { "source": { "source": "github", "repo": "Redskull-127/lucid" } } },
+  "enabledPlugins": { "lucid@lucid": true }
+}
+```
 
 ---
 

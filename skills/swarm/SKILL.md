@@ -1,6 +1,6 @@
 ---
 name: swarm
-description: Split a feature across parallel agents (subagents or Agent-Teams teammates) that share one lucid plan, log and set of file claims. Use when the work splits into parts that touch different files.
+description: Split a feature across parallel agents (subagents or Agent-Teams teammates) that share one lucid plan, log and set of file claims. Use proactively, without being asked, whenever you are about to run two or more agents that edit files at the same time, and the work splits into parts that touch different files.
 argument-hint: <feature>
 ---
 

@@ -9,7 +9,11 @@ tool call, so nobody works from a stale plan or a lossy summary.
   lucid [--as ID] init | note KIND TEXT [-e path:line ...] | claim GLOB... [--for TASK]
                   | release [GLOB...] | supersede ID... [--why W] | log [--since ID] | status
                   | wait [--timeout S] | end
+                  | learn TEXT [--paths GLOB...] [-e path:line ...] [--source S] | rules [export [--check]]
   lucid hook EVENT     (hook JSON on stdin; wired in hooks/hooks.json via hooks/guard.sh)
+
+Team rules are .claude/rules/*.md, which Claude Code loads itself. lucid adds `forbid:` (regexes added lines must not
+match) and `review: true` (checked against the diff before a turn ends), per-rule stats, and proposals in .lucid/proposed/.
 """
 import argparse
 import difflib
@@ -38,6 +42,20 @@ EDIT_TOOLS = ("Edit", "Write", "MultiEdit", "NotebookEdit")
 TTL = _int_env("LUCID_CLAIM_TTL", 1200)  # a claim lapses after 20 min of owner silence
 STRAY_ALARM = _int_env("LUCID_STRAY_ALARM", 20)  # one command changing this many unclaimed files raises a blocker
 CAP_DIGEST, CAP_DELTA, CAP_CLAIMS, CAP_PLAN = 6000, 2500, 1200, 2500  # ponytail: fixed char budgets, make configurable if they bite
+RULES = os.environ.get("LUCID_RULES", "on").strip().lower()  # on | observe (record stats, inject nothing) | off
+NAGS, CAP_REVIEW = 2, 1500  # forbid feedback per rule+file per session; rule text per review gate
+# A user correcting the agent: a possible team convention. ponytail: a regex; a false hit costs one capped hint line.
+CORRECTION = re.compile(r"^\W*(?:no|nope|don'?t|do not|never|stop|instead|actually)\b|\b(?:we (?:always|never|don'?t|do not|"
+                        r"prefer)|from now on|going forward|in this (?:repo|codebase|project))\b", re.I)
+MARK = re.compile(r"<!-- lucid:rules.*?<!-- /lucid:rules -->\n?", re.S)
+# Every session where lucid has nothing to share yet: when to use it, so nobody has to say "use lucid".
+HINT = ("[lucid] is installed. Use it on your own when it fits; the user won't name it:\n"
+        "- Before two or more agents edit files in parallel: /lucid:swarm (one live plan, decision log and file claims they "
+        "all share; plan changes reach running workers).\n"
+        "- The plan changes while workers run: /lucid:replan.\n"
+        "- The user states a standing convention for this repo (\"we never…\", \"from now on…\"): `lucid learn \"<rule>\" "
+        "--paths '<glob>' --source chat`. It becomes a team rule once a PR merges it.\n"
+        "One agent on an ordinary task needs none of this.")
 # plan sections that must reach every agent whole; the rest (tasks, notes) is trimmed first. Field run: the cut
 # landed mid-Constraints ("Never z.from…") while 1,100 chars of task globs above it went through.
 PROTECTED = re.compile(r"goal|constraint|rule|never|stop|must", re.I)
@@ -408,6 +426,8 @@ def digest(me):
         older = len(cands) - len(kept)
         out.append("## Log (newest last)%s\n%s" % (
             " (%d older: `lucid log`)" % older if older else "", "\n".join(reversed(kept))))
+    if len(out) == 1:
+        return "", off  # no plan, log or claims yet (e.g. a project that only uses team rules): inject nothing
     return "\n\n".join(out), off
 
 
@@ -428,6 +448,227 @@ def delta(me, st):
                         "touches files you own or claimed, apply it now and log a decision; otherwise carry on.")
     save_state(me, st)
     return ctx
+
+
+# ---------- team rules (.claude/rules/) ----------
+# Claude Code loads these files itself (`paths:` = when). lucid reads two extra keys it ignores: `forbid` (regexes the
+# lines an agent adds must not match) and `review: true` (checked against the diff at the end of a turn). Nothing here
+# blocks a write or runs a command from a repo file.
+
+def _scalar(v):
+    v = v.strip()
+    m = re.match(r"'((?:[^']|'')*)'|\"((?:[^\"\\]|\\.)*)\"", v)
+    if m:  # quoted: YAML's '' and \\ / \" escapes; regexes belong in single quotes
+        return m.group(1).replace("''", "'") if m.group(1) is not None else re.sub(r"\\(.)", r"\1", m.group(2))
+    v = re.sub(r"\s+#.*$", "", v).strip()
+    return {"true": True, "false": False}.get(v.lower(), v)
+
+
+def _items(s):
+    """`a, "b", c/{x,y}` -> list; commas inside quotes or {braces} don't split."""
+    out, cur, depth, q = [], "", 0, ""
+    for ch in s:
+        if q:
+            q = "" if ch == q else q
+        elif ch in "'\"":
+            q = ch
+        elif ch in "{}":
+            depth += 1 if ch == "{" else -1
+        elif ch == "," and depth == 0:
+            out.append(cur)
+            cur = ""
+            continue
+        cur += ch
+    return [_scalar(x) for x in out + [cur] if x.strip()]
+
+
+def frontmatter(text):
+    """-> (meta, body). ponytail: the YAML subset rule files use (key: scalar, key: [a, b], `- item` lists); swap in
+    a real YAML parser if rule files grow nested keys."""
+    m = re.match(r"---[ \t]*\n(.*?)\n---[ \t]*(?:\n|$)", text, re.S)
+    if not m:
+        return {}, text
+    meta, key = {}, None
+    for line in m.group(1).splitlines():
+        item = re.match(r"\s+-\s+(.*)|-\s+(.*)", line)
+        kv = re.match(r"([\w-]+):\s*(.*)$", line)
+        if item and key:
+            if not isinstance(meta.get(key), list):
+                meta[key] = []
+            meta[key].append(_scalar(item.group(1) or item.group(2)))
+        elif kv:
+            key, v = kv.group(1), kv.group(2).strip()
+            meta[key] = _items(v[1:v.rindex("]")]) if v.startswith("[") and "]" in v else (_scalar(v) if v else [])
+    return meta, text[m.end():]
+
+
+def _glob(pat):
+    out, i = "", 0
+    while i < len(pat):
+        if pat.startswith("**/", i):
+            out, i = out + "(?:.*/)?", i + 3
+        elif pat.startswith("**", i):
+            out, i = out + ".*", i + 2
+        elif pat[i] in "*?":
+            out, i = out + ("[^/]*" if pat[i] == "*" else "[^/]"), i + 1
+        elif pat[i] == "{" and "}" in pat[i:]:
+            j = pat.index("}", i)
+            out, i = out + "(?:%s)" % "|".join(_glob(x) for x in pat[i + 1:j].split(",")), j + 1
+        elif pat[i] == "[" and "]" in pat[i + 1:]:
+            j = pat.index("]", i + 1)
+            out, i = out + "[" + pat[i + 1:j].replace("!", "^", 1 if pat[i + 1] == "!" else 0) + "]", j + 1
+        else:
+            out, i = out + re.escape(pat[i]), i + 1
+    return out
+
+
+@functools.lru_cache(maxsize=None)
+def glob_rx(pat):
+    """Claude Code-style path glob: `**/` spans zero or more dirs, `*` stays inside one, `{a,b}` alternates."""
+    return re.compile(_glob(pat.lstrip("./") if pat.startswith("./") else pat) + r"\Z")
+
+
+def applies(rule, f):
+    """No `paths` = everywhere (Claude Code loads it at launch); a bare dir path covers what's under it."""
+    return not rule["paths"] or any(glob_rx(g).match(f) or f.startswith(g.rstrip("/") + "/") for g in rule["paths"])
+
+
+@functools.lru_cache(maxsize=None)
+def rules():
+    base, out = os.path.join(ROOT, ".claude", "rules"), []
+    for dp, dns, fns in os.walk(base):
+        dns.sort()
+        for fn in sorted(x for x in fns if x.endswith(".md")):
+            meta, body = frontmatter(read(os.path.join(dp, fn)))
+            listify = lambda v: [str(x) for x in (v if isinstance(v, list) else [v] if v else []) if str(x).strip()]
+            r = dict(id=os.path.relpath(os.path.join(dp, fn), base), paths=listify(meta.get("paths")), body=body.strip(),
+                     review=meta.get("review") is True, forbid_src=listify(meta.get("forbid")), forbid=[], broken="")
+            r["title"] = next((x.strip().lstrip("#").strip()[:80] for x in r["body"].splitlines() if x.strip()), r["id"])
+            try:
+                r["forbid"] = [re.compile(x) for x in r["forbid_src"]]
+            except re.error as ex:  # a bad rule file is skipped and listed by `lucid rules`, never breaks a hook
+                r["broken"] = "bad forbid regex: %s" % ex
+            out.append(r)
+    return out
+
+
+def stat(ev, rid, f=""):
+    """One event per line, per machine. O_APPEND writes this small don't interleave, so no lock."""
+    try:
+        os.makedirs(p(".state"), exist_ok=True)
+        fd = os.open(p(".state/rules.jsonl"), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
+        try:
+            os.write(fd, (json.dumps({"ts": int(time.time()), "ev": ev, "rule": rid, "file": f}) + "\n").encode())
+        finally:
+            os.close(fd)
+    except OSError:
+        pass
+
+
+def added_lines(tool, ti, target):
+    """Lines an edit adds. Lines already there (old_string, or the file on disk for Write) never trip a rule."""
+    if tool == "Write":
+        pairs = [(ti.get("content"), read(target))]
+    elif tool == "MultiEdit":
+        pairs = [(e.get("new_string"), e.get("old_string")) for e in ti.get("edits") or [] if isinstance(e, dict)]
+    else:
+        pairs = [(ti.get("new_string"), ti.get("old_string"))]
+    out = []
+    for new, old in pairs:
+        have = {x.strip() for x in str(old or "").splitlines()}
+        out += [x.strip() for x in str(new or "").splitlines() if x.strip() and x.strip() not in have]
+    return out
+
+
+def touch(st, path):
+    f = rel(path)
+    if not f.startswith(("..", ".lucid/")) and f not in st.setdefault("touched", []):
+        st["touched"].append(f)
+
+
+def check_edit(st, tool, ti, target):
+    """Pattern rules on the lines this edit adds -> feedback for the agent ('' if clean or capped)."""
+    if tool not in ("Edit", "Write", "MultiEdit") or not target:
+        return ""
+    f, new, msgs = rel(target), None, []
+    if f.startswith(".."):
+        return ""
+    for r in rules():
+        if not applies(r, f):
+            continue
+        if r["paths"]:
+            stat("match", r["id"], f)
+        if not r["forbid"]:
+            continue
+        new = added_lines(tool, ti, target) if new is None else new
+        bad = [x for x in new if any(rx.search(x) for rx in r["forbid"])]
+        if not bad:
+            continue
+        stat("forbid", r["id"], f)
+        key = r["id"] + "::" + f
+        flagged, nags = st.setdefault("flagged", {}), st.setdefault("nags", {})
+        flagged[key] = (flagged.get(key, []) + bad)[-10:]
+        nags[key] = nags.get(key, 0) + 1
+        if nags[key] <= NAGS:
+            msgs.append("[lucid] team rule %s (\"%s\"): this edit adds `%s` to %s. Fix it, or say in one line why it's an "
+                        "exception." % (r["id"], r["title"], bad[0][:120], f))
+    return "\n".join(msgs) if RULES == "on" else ""
+
+
+def review_gate(st):
+    """End of turn: the review rules for files this agent touched, plus pattern hits still in the code -> text or ''."""
+    touched = st.get("touched") or []
+    rs = [r for r in rules() if r["review"] and any(applies(r, f) for f in touched)]
+    still = []
+    for key, lines in (st.get("flagged") or {}).items():
+        rid, f = key.split("::", 1)
+        have = {x.strip() for x in file_lines(os.path.join(ROOT, f)) or []}
+        left = [x for x in lines if x in have]
+        if left:
+            stat("unresolved", rid, f)
+            still.append("- %s: %s still has `%s`" % (rid, f, left[0][:120]))
+    if not rs and not still:
+        return ""
+    out, budget = ["lucid: before you finish, check this turn's changes against your team's rules (.claude/rules/)."], CAP_REVIEW
+    for r in rs:
+        stat("review", r["id"])
+        body = clip(r["body"], max(budget, 200), "… (full rule: .claude/rules/%s)" % r["id"])
+        budget -= len(body)
+        out.append("### %s\n%s" % (r["id"], body))
+    if still:
+        out.append("Pattern rules these changes still break:\n" + "\n".join(still))
+    files = " ".join(sorted(touched)[:12]) + (" …" if len(touched) > 12 else "")
+    out.append("Read `git diff -- %s` (git diff skips untracked files: read new files directly). Fix what breaks a rule. "
+               "Then end with one line per rule: `✓ <rule>`, or `✗ <rule> path:line <why it's an exception>`. "
+               "(Asked once per turn.)" % files)
+    return "\n\n".join(out)
+
+
+def learn_hint(inp, st):
+    if RULES != "on" or st.get("learn_hints", 0) >= 3 or not CORRECTION.search(str(inp.get("prompt") or "")):
+        return ""
+    if not (os.path.isdir(os.path.join(ROOT, ".claude", "rules")) or os.path.isdir(p("proposed"))):
+        return ""  # a project that hasn't adopted team rules: lucid stays a swarm tool there
+    st["learn_hints"] = st.get("learn_hints", 0) + 1
+    return ("[lucid] If that's a standing team convention (not just this task), propose it as a team rule: "
+            "`lucid learn \"<rule>\" --paths '<glob>' -e path:line --source chat`. Teammates get it once a PR merges it.")
+
+
+def export_block(rs):
+    groups = {}
+    for r in rs:
+        if not r["broken"]:
+            groups.setdefault(", ".join("`%s`" % g for g in r["paths"]) or "Everywhere", []).append(r)
+    out = ["<!-- lucid:rules: generated by `lucid rules export` from .claude/rules/. Edit those files, not this block. -->",
+           "## Team rules", ""]
+    for head in sorted(groups, key=lambda h: (h != "Everywhere", h)):
+        out += ["### " + head, ""]
+        for r in groups[head]:
+            body = re.sub(r"(?m)^(#+) ", lambda m: "#" * min(len(m.group(1)) + 3, 6) + " ", r["body"])
+            out += [body if body.startswith("#") else "#### %s\n%s" % (r["title"], body), ""]
+            if r["forbid_src"]:
+                out += ["Never in new code: " + ", ".join("`%s`" % x for x in r["forbid_src"]), ""]
+    return "\n".join(out + ["<!-- /lucid:rules -->"]) + "\n"
 
 
 # ---------- hooks ----------
@@ -505,16 +746,15 @@ def hook(event):
         inp = {}
     inp = inp if isinstance(inp, dict) else {}
     setup(inp.get("cwd") or os.getcwd())
-    if not os.path.isdir(D):
-        return 0  # project hasn't opted in
+    if not os.path.isdir(D):  # not opted in: guard.sh lets only SessionStart through, to say when lucid helps
+        return emit(event, HINT) if event == "SessionStart" else 0
     if os.environ.get("LUCID_DEBUG"):
         with open(p(".debug.jsonl"), "a", encoding="utf-8") as f:
             f.write(json.dumps(dict(lucid_event=event, **inp)) + "\n")
-    if os.path.exists(p("ended")):  # `lucid end`: the swarm is over. Field run: 2.5 h of solo review rounds still got notes.
-        if event == "SessionStart":
-            return emit(event, "[lucid] %s `lucid status` shows its plan and log; `lucid init` starts a new swarm."
-                        % read(p("ended")).strip())
-        return 0
+    # `lucid end`: the swarm is over, so its hooks go quiet (field run: 2.5 h of solo review rounds still got notes).
+    # Team rules are not part of a swarm and keep working.
+    ended = os.path.exists(p("ended"))
+    team = RULES in ("on", "observe")
     me = who(inp)
     tool, ti = inp.get("tool_name", ""), inp.get("tool_input")
     ti = ti if isinstance(ti, dict) else {}
@@ -525,6 +765,8 @@ def hook(event):
     edits_plan = bool(target and same(target, plan)) or any(same(os.path.join(cwd, os.path.expanduser(w)), plan) for w in writes)
 
     if event == "PostToolUse":
+        if ended:
+            return 0
         ctx = ""
         if edits_plan:
             sync_plan(me)
@@ -538,20 +780,24 @@ def hook(event):
                 return 2
             ctx = "\n".join(x for x in (ctx, msg) if x)
         return emit(event, ctx)
-    sync_plan("user")  # plan edited outside Claude's tools (editor, git checkout)
+    if not ended:
+        sync_plan("user")  # plan edited outside Claude's tools (editor, git checkout)
     st = load_state(me)
 
     if event in ("SessionStart", "SubagentStart"):
+        if ended:
+            return emit(event, "[lucid] %s `lucid status` shows its plan and log; `lucid init` starts a new swarm."
+                        % read(p("ended")).strip()) if event == "SessionStart" else 0
         ctx, st["cursor"] = digest(me)
         if event == "SubagentStart":
             st["parent"] = who({"session_id": inp.get("session_id", "")})  # the lead that spawned it (Stop nudge, wait)
             st.pop("stopped", None)
         save_state(me, st)
-        return emit(event, ctx)
+        return emit(event, ctx or (HINT if event == "SessionStart" else ""))  # nothing shared yet: say when lucid helps
     if event == "UserPromptSubmit":
-        ctx = delta(me, st)
-        busy = sorted(o for o in live_claims(entries(0)[0]) if o != me)
-        ticks = re.findall(r"(?m)^\s*[-*] \[([ xX])\]", read(plan))
+        ctx = "" if ended else delta(me, st)
+        busy = [] if ended else sorted(o for o in live_claims(entries(0)[0]) if o != me)
+        ticks = [] if ended else re.findall(r"(?m)^\s*[-*] \[([ xX])\]", read(plan))
         if busy:  # e2e: leads relayed chat-only plan changes by message and skipped plan.md (1 of 3 recorded it)
             ctx = (ctx + "\n" if ctx else "") + (
                 "[lucid] %s still working. If this message changes the plan, edit .lucid/plan.md first (or /lucid:replan): "
@@ -562,10 +808,13 @@ def hook(event):
             ctx = (ctx + "\n" if ctx else "") + (
                 "[lucid] Every plan task is done and no other agent is working. If the swarm is over, `lucid end` stops "
                 "lucid's hooks here (plan and log stay).")
-        return emit(event, ctx)
+        hint = learn_hint(inp, st) if team else ""
+        if hint:
+            save_state(me, st)
+        return emit(event, "\n".join(x for x in (ctx, hint) if x))
     if event == "PreToolUse":
-        why, extra = None, {}
-        if tool == "Bash" or (tool in EDIT_TOOLS and target):
+        why, extra, note = None, {}, ""
+        if not ended and (tool == "Bash" or (tool in EDIT_TOOLS and target)):
             live = live_claims(entries(0)[0])
             if tool == "Bash":
                 # Stamp the caller's real id on every `lucid` call (replacing a wrong --as), so agents never
@@ -591,42 +840,67 @@ def hook(event):
                 st["edited"] = st.get("edited") or not why
             if edits_plan and not why:  # so a racing hook credits this agent, not "user"
                 write(p(".state/plan-editor"), me)
-        ctx = delta(me, st)
+        wrote = team and not why and bool(writes or (tool in EDIT_TOOLS and target))
+        if wrote:  # team rules: remember what this turn touched (review gate), check what this edit adds
+            for f in writes:
+                touch(st, os.path.join(cwd, os.path.expanduser(f)))
+            if tool in EDIT_TOOLS and target:
+                touch(st, target)
+            note = check_edit(st, tool, ti, target)
+        ctx = "" if ended else delta(me, st)  # delta saves state
+        if ended and wrote:
+            save_state(me, st)
+        ctx = "\n".join(x for x in (ctx, note) if x)
         if why:
             return emit(event, ctx, permissionDecision="deny", permissionDecisionReason=why)
         return emit(event, ctx, **extra)
     if event in ("SubagentStop", "TaskCompleted") and inp.get("agent_id"):
-        mine = [e for e in entries(0)[0] if e["agent"] == me]
+        msgs = []
+        if team and not st.get("reviewed"):
+            gate = review_gate(st)
+            if gate:
+                st["reviewed"] = True  # once per worker
+                msgs += [gate] if RULES == "on" else []
+        mine = [] if ended else [e for e in entries(0)[0] if e["agent"] == me]
         logged = any(e["kind"] in KINDS + ("plan",) for e in mine)  # changing the plan counts as reporting
-        if st.get("edited") and not st.get("gated") and not logged:
+        if not ended and st.get("edited") and not st.get("gated") and not logged:
             st["gated"] = True
+            msgs.append("lucid: you edited files but logged nothing for the other agents. Before finishing, record decisions "
+                        "(+why), dead ends and non-obvious facts: `lucid note decision \"...\" -e path:line`. "
+                        "Then finish. (Asked once.)")
+        if msgs:
             save_state(me, st)
-            sys.stderr.write(
-                "lucid: you edited files but logged nothing for the other agents. Before finishing, record decisions "
-                "(+why), dead ends and non-obvious facts: `lucid note decision \"...\" -e path:line`. "
-                "Then finish. (Asked once.)\n")
+            sys.stderr.write("\n\n".join(msgs) + "\n")
             return 2
         if event == "SubagentStop" and fold(mine)[1].get(me):
             append(agent=me, kind="release", globs=[], text="all (agent stopped)")
         if event == "SubagentStop":
             st["stopped"] = True  # lets the lead's `lucid wait` return once every worker is done
+        save_state(me, st)
+    if event == "Stop" and not inp.get("agent_id"):
+        msgs = []
+        if not inp.get("stop_hook_active"):
+            gate = review_gate(st) if team else ""
+            msgs += [gate] if gate and RULES == "on" else []
+            # Field run: a worker's blocker sat 19 min because the lead had gone idle. A background `lucid wait` wakes it.
+            workers = [] if ended else sorted(o for o in live_claims(entries(0)[0]) if o != me and load_state(o).get("parent") == me)
+            try:
+                waiting = time.time() - os.path.getmtime(p(".state/%s.wait" % me)) < 15
+            except OSError:
+                waiting = False
+            if workers and not waiting and not set(workers) <= set(st.get("nudged") or []):
+                st["nudged"] = sorted(set(workers) | set(st.get("nudged") or []))
+                msgs.append("lucid: %s still working. Before ending your turn, run `lucid wait` with run_in_background: it "
+                            "returns (and wakes you) when a worker logs a blocker or a stray-write alarm." % ", ".join(workers))
+        if msgs or st.get("touched") or st.get("flagged"):
+            st["touched"], st["flagged"] = [], {}  # the turn is over, or its one review round starts now
             save_state(me, st)
-    if event == "Stop" and not inp.get("agent_id") and not inp.get("stop_hook_active"):
-        # Field run: a worker's blocker sat 19 min because the lead had gone idle. A background `lucid wait` wakes it.
-        workers = sorted(o for o in live_claims(entries(0)[0]) if o != me and load_state(o).get("parent") == me)
-        try:
-            waiting = time.time() - os.path.getmtime(p(".state/%s.wait" % me)) < 15
-        except OSError:
-            waiting = False
-        if workers and not waiting and not set(workers) <= set(st.get("nudged") or []):
-            st["nudged"] = sorted(set(workers) | set(st.get("nudged") or []))
-            save_state(me, st)
-            sys.stderr.write("lucid: %s still working. Before ending your turn, run `lucid wait` with run_in_background: "
-                             "it returns (and wakes you) when a worker logs a blocker or a stray-write alarm.\n" % ", ".join(workers))
+        if msgs:
+            sys.stderr.write("\n\n".join(msgs) + "\n")
             return 2
     # A session between turns isn't editing: release its claims. Bench: an ended session's claim blocked the next
     # session for the whole TTL; live: split-pane teammates (separate sessions) sat idle holding claims.
-    if event in ("Stop", "SessionEnd") and not inp.get("agent_id"):
+    if not ended and event in ("Stop", "SessionEnd") and not inp.get("agent_id"):
         if fold([e for e in entries(0)[0] if e["agent"] == me])[1].get(me):
             append(agent=me, kind="release", globs=[], text="all (%s)" % ("turn ended" if event == "Stop" else "session ended"))
     return 0
@@ -655,10 +929,20 @@ def cli(argv):
     sub.add_parser("wait", help="block until another agent logs a blocker or dead end (run it in the background)"
                    ).add_argument("--timeout", type=int, default=1800)
     sub.add_parser("end", help="end the swarm: hooks go quiet, plan and log stay")
+    lr = sub.add_parser("learn", help="propose a team rule (.lucid/proposed/; a PR moves it into .claude/rules/)")
+    lr.add_argument("text")
+    lr.add_argument("--paths", nargs="+", default=[], help="globs the rule applies to (default: everywhere)")
+    lr.add_argument("-e", "--evidence", nargs="+", default=[], help="path[:line] where it shows, or a PR link")
+    lr.add_argument("--source", default="chat", help="chat | pr#123 | dream | review")
+    ru = sub.add_parser("rules", help="team rules with this machine's stats; `export` writes the AGENTS.md block")
+    ru.add_argument("action", nargs="?", choices=["export"])
+    ru.add_argument("--check", action="store_true", help="with export: exit 1 if AGENTS.md is out of date (for CI)")
     a = ap.parse_args(argv)
     me = re.sub(r"[^\w.-]", "_", a.me) or "human"
     setup(os.getcwd())
 
+    if a.cmd == "rules":
+        return rules_cli(a)
     if a.cmd == "init":
         if os.path.exists(p("ended")):  # a new swarm: shelve the finished one so its log doesn't leak into the next feature
             arch = p("archive/" + time.strftime("%Y-%m-%d-%H%M%S"))
@@ -669,34 +953,20 @@ def cli(argv):
             if os.path.exists(p(".plan.prev")):
                 os.remove(p(".plan.prev"))
             print("lucid: archived the ended swarm to %s" % os.path.relpath(arch, ROOT))
-        os.makedirs(p(".state"), exist_ok=True)
+        ensure()
         if not os.path.exists(p("plan.md")):
             write(p("plan.md"), PLAN_TEMPLATE)
         if not os.path.exists(p(".plan.prev")):
             write(p(".plan.prev"), read(p("plan.md")))
-        write(p(".gitignore"), ".state/\n.plan.prev\n.debug.jsonl\n*.tmp\n")
-        write(p(".gitattributes"), "log.jsonl merge=union\n")  # two people appending never conflicts
-        open(p("log.jsonl"), "a").close()
         return print("lucid: dream ready at %s. Write the plan in .lucid/plan.md" % D)
     if not os.path.isdir(D):
-        sys.exit("lucid: no .lucid/ found here; run `lucid init` first")
+        if a.cmd != "learn":
+            sys.exit("lucid: no .lucid/ found here; run `lucid init` first")
+        ensure()  # proposing the first team rule opts the repo in
     sync_plan("user")
 
     if a.cmd == "note":
-        ev, hashes, anchors = [], {}, []
-        for x in a.evidence:
-            m = re.match(r"(.*?)(?::(\d+)(?:-(\d+))?)?$", x)
-            path = m.group(1)
-            if not os.path.isfile(path):
-                ev.append(x)
-                continue
-            r, lines, lo = rel(path), file_lines(os.path.realpath(path)), int(m.group(2) or 0)
-            ev.append(r + x[len(path):])
-            if lo and lines and lo <= len(lines):  # anchor the cited lines +-2, so an edit elsewhere in the file isn't "stale"
-                win = lines[max(lo - 3, 0):min(max(int(m.group(3) or lo), lo) + 2, len(lines))]
-                anchors.append([r, len(win), win_sha(win)])
-            else:
-                hashes[r] = fhash(os.path.realpath(path))
+        ev, hashes, anchors = evidence(a.evidence)
         extra = {"anchors": anchors} if anchors else {}
         if me.startswith("ag-") and not load_state(me).get("edited") and not any(
                 e["agent"] == me and e["kind"] == "claim" for e in entries(0)[0]):
@@ -767,8 +1037,104 @@ def cli(argv):
         text = 'The swarm for "%s" ended %s.' % (goal[:80] + ("…" if len(goal) > 80 else ""), time.strftime("%Y-%m-%d"))
         append(agent=me, kind="end", text=text)
         write(p("ended"), text + "\n")
-        print("lucid: ended. Hooks stay quiet here now; the plan and log are kept. `lucid init` archives them and starts "
-              "a new swarm; `rm .lucid/ended` resumes this one.")
+        print("lucid: ended. Hooks stay quiet here now (team rules still apply); the plan and log are kept. `lucid init` "
+              "archives them and starts a new swarm; `rm .lucid/ended` resumes this one.\nNext: run /lucid:dream to "
+              "consolidate this swarm's log and propose its lasting lessons as team rules.")
+    elif a.cmd == "learn":
+        globs = [norm_glob(g) for g in a.paths]
+        text = a.text.strip()
+        key = lambda s: re.sub(r"\W+", " ", s).strip().lower()
+        known = [os.path.join(d, f) for d in (p("proposed"), os.path.join(ROOT, ".claude", "rules"))
+                 for f in (os.listdir(d) if os.path.isdir(d) else []) if f.endswith(".md")]
+        dup = next((k for k in known if key(text) in key(frontmatter(read(k))[1])), None)
+        if dup:
+            return print("lucid: already there: %s" % os.path.relpath(dup, ROOT))
+        slug = "-".join(re.findall(r"[a-z0-9]+", text.lower())[:6])[:48].strip("-") or "rule"
+        path, k = p("proposed/%s.md" % slug), 2
+        while os.path.exists(path):
+            path, k = p("proposed/%s-%d.md" % (slug, k)), k + 1
+        meta = (["paths: [%s]" % ", ".join(json.dumps(g) for g in globs)] if globs else []) + ["source: %s" % a.source]
+        ev = evidence(a.evidence)[0]
+        meta += (["evidence: [%s]" % ", ".join(json.dumps(x) for x in ev)] if ev else []) + ["proposed: " + time.strftime("%Y-%m-%d")]
+        write(path, "---\n%s\n---\n%s\n" % ("\n".join(meta), text))
+        print("lucid: proposed %s. It does nothing until a PR moves it into .claude/rules/ (/lucid:learn promote)."
+              % os.path.relpath(path, ROOT))
+
+
+def ensure():
+    os.makedirs(p(".state"), exist_ok=True)
+    write(p(".gitignore"), ".state/\n.plan.prev\n.debug.jsonl\n*.tmp\n")
+    write(p(".gitattributes"), "log.jsonl merge=union\n")  # two people appending never conflicts
+    open(p("log.jsonl"), "a").close()
+
+
+def evidence(items):
+    """`path[:line[-line]]` or free text -> (normalized evidence, whole-file hashes, line anchors)."""
+    ev, hashes, anchors = [], {}, []
+    for x in items:
+        m = re.match(r"(.*?)(?::(\d+)(?:-(\d+))?)?$", x)
+        path = m.group(1)
+        if not os.path.isfile(path):
+            ev.append(x)
+            continue
+        r, lines, lo = rel(path), file_lines(os.path.realpath(path)), int(m.group(2) or 0)
+        ev.append(r + x[len(path):])
+        if lo and lines and lo <= len(lines):  # anchor the cited lines +-2, so an edit elsewhere in the file isn't "stale"
+            win = lines[max(lo - 3, 0):min(max(int(m.group(3) or lo), lo) + 2, len(lines))]
+            anchors.append([r, len(win), win_sha(win)])
+        else:
+            hashes[r] = fhash(os.path.realpath(path))
+    return ev, hashes, anchors
+
+
+def rules_cli(a):
+    rs = rules()
+    if a.action == "export":
+        target = os.path.join(ROOT, "AGENTS.md")
+        old = read(target)
+        if not rs and not MARK.search(old):
+            return print("lucid: no team rules in .claude/rules/ yet; nothing to export.")
+        block = export_block(rs)
+        m = MARK.search(old)
+        new = old[:m.start()] + block + old[m.end():] if m else (old.rstrip("\n") + "\n\n" if old.strip() else "") + block
+        if a.check:
+            if new != old:
+                sys.exit("lucid: AGENTS.md's team-rules block is out of date with .claude/rules/; run `lucid rules export`.")
+            return print("lucid: AGENTS.md is up to date with .claude/rules/.")
+        if new != old:
+            write(target, new)
+        print("lucid: AGENTS.md has %d team rules for Codex, Copilot, Cursor and review bots that read it." % len(rs))
+        if not any(os.path.exists(os.path.join(ROOT, x)) for x in ("CLAUDE.md", ".claude/CLAUDE.md", "CLAUDE.local.md")):
+            print("Note: with no CLAUDE.md, Claude Code reads AGENTS.md too and sees these rules twice. A CLAUDE.md "
+                  "(even one line) makes it use CLAUDE.md and .claude/rules/ and leave AGENTS.md to other tools.")
+        return
+    agg = {}
+    for line in read(p(".state/rules.jsonl")).splitlines():
+        try:
+            e = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(e, dict):
+            s = agg.setdefault(str(e.get("rule")), {})
+            s[str(e.get("ev"))] = s.get(str(e.get("ev")), 0) + 1
+            s["last"] = max(s.get("last", 0), e.get("ts") if isinstance(e.get("ts"), int) else 0)
+    print("Team rules in .claude/rules/: %d · LUCID_RULES=%s · stats from this machine" % (len(rs), RULES))
+    for r in rs:
+        s = agg.get(r["id"], {})
+        keys = ", ".join(x for x in ("forbid" if r["forbid_src"] else "", "review" if r["review"] else "") if x)
+        nums = ", ".join("%s %d" % (k, s[k]) for k in ("match", "forbid", "unresolved", "review") if s.get(k))
+        print("- %s%s: %s (%s)%s%s" % (r["id"], " [%s]" % keys if keys else "", r["title"],
+                                       ", ".join(r["paths"]) or "everywhere", " · " + nums if nums else "",
+                                       " · last %s" % time.strftime("%Y-%m-%d", time.localtime(s["last"])) if s.get("last") else ""))
+    idle = [r["id"] for r in rs if r["paths"] and not agg.get(r["id"], {}).get("match")]
+    if idle and agg:
+        print("Never matched an edit here: %s. Prune them or fix their paths." % ", ".join(idle))
+    for r in rs:
+        if r["broken"]:
+            print("Skipped %s: %s" % (r["id"], r["broken"]))
+    prop = sorted(f for f in (os.listdir(p("proposed")) if os.path.isdir(p("proposed")) else []) if f.endswith(".md"))
+    if prop:
+        print("Proposed, not active (%d): %s. Review them with /lucid:learn promote." % (len(prop), ", ".join(prop)))
 
 
 if __name__ == "__main__":

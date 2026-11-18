@@ -39,6 +39,11 @@ export const DOC_GROUPS: DocGroup[] = [
         description: "The /lucid:swarm, /lucid:replan and /lucid:dream slash commands, and the protocol skill.",
       },
       {
+        href: "/docs/team-rules",
+        title: "Team rules",
+        description: "One versioned source of truth for how agents work: rules checked on every edit, learned from corrections and PR reviews, approved in a PR.",
+      },
+      {
         href: "/docs/cli",
         title: "CLI reference",
         description: "Every lucid subcommand and flag, with examples.",

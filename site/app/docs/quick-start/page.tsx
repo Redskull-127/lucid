@@ -98,8 +98,19 @@ Add discounts and item removal to the shop.
           <CodeBlock lang="claude" label="In Claude Code" what="dream command" code={`/lucid:dream`} />
           <p>
             When the log gets long, or before you hand the project to a new session, <code>/lucid:dream</code> merges
-            duplicates, retires stale or wrong entries and writes <code>.lucid/digest.md</code>. It suggests up to three
-            lessons for <code>CLAUDE.md</code> and asks before adding them. It runs only when you invoke it.
+            duplicates, retires stale or wrong entries and writes <code>.lucid/digest.md</code>. It proposes up to three
+            lasting lessons as team rules. Claude suggests it after <code>lucid end</code>.
+          </p>
+        </li>
+
+        <li>
+          <h2 id="rules">Keep what you learned: team rules</h2>
+          <CodeBlock lang="claude" label="In Claude Code" what="promote command" code={`/lucid:learn promote`} />
+          <p>
+            Proposals from <code>/lucid:dream</code>, from your corrections in chat and from{" "}
+            <code>/lucid:learn pr &lt;n&gt;</code> wait in <code>.lucid/proposed/</code>. Promote the ones you want into{" "}
+            <code>.claude/rules/</code> and merge them in a PR. From then on, every teammate’s agents are checked against
+            them. See <Link href="/docs/team-rules">Team rules</Link>.
           </p>
         </li>
       </ol>

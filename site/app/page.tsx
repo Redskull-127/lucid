@@ -26,11 +26,19 @@ const FILES = [
   { name: "digest.md", text: "A tidy summary written by /lucid:dream." },
 ];
 
+const RULES = [
+  { title: "Checked on every edit", text: "A forbid pattern runs on the lines an agent adds. A hit comes back with the edit, never as a blocked write." },
+  { title: "Reviewed before the turn ends", text: "Judgment rules are checked against the diff, once per turn, for the files it touched." },
+  { title: "Learned, then approved in a PR", text: "Corrections, PR review threads and swarm lessons become proposals your team merges like code." },
+  { title: "One set of rules for every tool", text: "Exported to AGENTS.md for Codex, Copilot, Cursor and review bots. lucid rules shows what each rule caught." },
+];
+
 const LIMITS = [
   { title: "More agents, more tokens", text: "lucid saves rework, not per-agent cost." },
   { title: "Decoupled work only", text: "Keep tightly coupled changes with one agent." },
   { title: "Parity cases", text: "One agent across sessions, or a change told to the lead in chat: Claude Code already handles these." },
   { title: "Bash writes are a heuristic", text: "Common write patterns are caught, not all of them." },
+  { title: "Rule reviews are self-checks", text: "A review round is a prompt, not proof. Keep human review and CI." },
   { title: "macOS and Linux", text: "POSIX only, for file locking." },
 ];
 
@@ -59,7 +67,7 @@ export default function Home() {
             </h1>
             <p className="lede mt-5 max-w-[30rem]">
               A live plan and shared memory for Claude Code agents. Change it mid-build, and every running worker sees
-              it before its next step.
+              it before its next step. Plus team rules every agent is checked against, learned from your reviews.
             </p>
             <div className="mt-8 max-w-[30rem]">
               <InstallBlock />
@@ -151,6 +159,37 @@ export default function Home() {
               How it works, in detail
             </Link>
           </p>
+        </div>
+      </section>
+
+      {/* ---------------------------------------------------------------- team rules */}
+      <section className="border-b border-line" aria-labelledby="rules-title">
+        <div className="mx-auto grid w-full max-w-[84rem] gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:gap-16 lg:px-8 lg:py-28">
+          <div>
+            <h2 id="rules-title" className="section-title">
+              AGENTS.md is advice. Team rules get checked.
+            </h2>
+            <p className="lede mt-4">
+              Write a rule once in <code>.claude/rules/</code>. Claude Code loads it when an agent touches matching files,
+              and lucid checks it, reviews against it and learns new ones.
+            </p>
+            <p className="mt-6 text-[0.975rem]">
+              <Link href="/docs/team-rules" className="link">
+                Team rules, in detail
+              </Link>
+            </p>
+          </div>
+          <dl className="border-t border-line">
+            {RULES.map((r) => (
+              <div
+                key={r.title}
+                className="grid gap-1 border-b border-line py-5 sm:grid-cols-[15rem_minmax(0,1fr)] sm:gap-6"
+              >
+                <dt className="font-display text-[1.2rem] font-semibold tracking-[-0.01em]">{r.title}</dt>
+                <dd className="text-muted">{r.text}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
       </section>
 

@@ -11,7 +11,9 @@ export default function DocsOverview() {
       <DocHeader title="lucid docs">
         lucid gives every Claude agent working on a project one shared memory, the dream: a live plan, an
         evidence-backed log and file claims. The lead agent, its subagents and Agent-Teams teammates all see it, and a
-        change to the plan reaches every running worker before its next action.
+        change to the plan reaches every running worker before its next action. For the whole team, lucid also keeps{" "}
+        <Link href="/docs/team-rules">team rules</Link>: conventions every agent is checked against, learned from
+        corrections and PR reviews and approved in a pull request.
       </DocHeader>
 
       <H2 id="the-dream">What’s in the dream</H2>
@@ -54,11 +56,22 @@ export default function DocsOverview() {
         and two agents can edit the same file. lucid addresses each of these with one shared, hook-fed memory.
       </p>
 
-      <H2 id="opt-in">Off until a project opts in</H2>
+      <H2 id="team-rules">Team rules</H2>
       <p>
-        lucid stays inactive until you run <code>lucid init</code> in a project. In every other project a tiny shell
-        guard checks for <code>.lucid/</code> and exits without starting Python. It works from repo subfolders and git
-        worktrees, which share the main checkout’s dream.
+        <code>.claude/rules/*.md</code> are Claude Code’s own path-scoped rule files. lucid adds a <code>forbid</code>{" "}
+        pattern checked on the lines each edit adds, a <code>review</code> step against the diff before a turn ends,
+        per-rule stats, proposals learned from chat corrections and PR reviews, and an AGENTS.md export for other tools.
+        See <Link href="/docs/team-rules">Team rules</Link>.
+      </p>
+
+      <H2 id="opt-in">Claude uses it without being asked</H2>
+      <p>
+        You don’t have to name lucid. Every session starts with a few lines on when it helps: before parallel agents
+        edit files, when the plan changes mid-build, and when you state a standing convention. Claude then runs{" "}
+        <code>/lucid:swarm</code>, <code>/lucid:replan</code> or <code>lucid learn</code> on its own. The rest of lucid
+        stays inactive until a project has a <code>.lucid/</code> folder. Before that, a tiny shell guard exits on every
+        other hook without starting Python. It works from repo subfolders and git worktrees, which share the main
+        checkout’s dream.
       </p>
 
       <H2 id="next">Where to go next</H2>

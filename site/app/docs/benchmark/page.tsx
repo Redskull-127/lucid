@@ -13,7 +13,8 @@ export default function Benchmark() {
       <DocHeader title="Benchmark">
         The same tasks, run with and without lucid, on Claude Haiku 5.5 and Claude Opus 5.5, in a small repo and a
         large private monorepo. When the plan changed
-        mid-build, 54 of 54 runs passed with lucid and 12 of 54 without.
+        mid-build, 54 of 54 runs passed with lucid and 12 of 54 without. For{" "}
+        <a href="#team-rules">team rules</a>, every arm passed every run: lucid added no measured adherence there.
       </DocHeader>
 
       <H2 id="method">Methodology</H2>
@@ -261,6 +262,68 @@ export default function Benchmark() {
         alt="Haiku 5.5 mean wall-clock seconds per run with min-max range, with vs without lucid"
       />
 
+      <H2 id="team-rules">Team rules (0.5)</H2>
+      <p>
+        Do agents follow team rules better with lucid? Three arms got the same 30 rules, 3 of which applied to the task,
+        and an identical prompt that never mentioned them:
+      </p>
+      <ul>
+        <li>
+          <strong>one CLAUDE.md</strong> holding all 30 rules;
+        </li>
+        <li>
+          <strong>native</strong>: the same rules as <code>.claude/rules/</code> files, which Claude Code loads by path;
+        </li>
+        <li>
+          <strong>lucid</strong>: the same rule files plus the plugin.
+        </li>
+      </ul>
+      <p>
+        The three rules that applied were: log through <code>shop.log</code>, never <code>print()</code> (a{" "}
+        <code>forbid</code> rule); money functions reject negative amounts; and every public function has a docstring
+        (both <code>review</code> rules). A hidden test checked the task and all three rules.
+      </p>
+      <Table
+        head={["Scenario", "Model", "lucid", "native rules", "one CLAUDE.md"]}
+        rows={[
+          ["One task, 4 changes", "Haiku 5.5", "8/8 · $0.018 · 36 s", "8/8 · $0.014 · 24 s", "8/8 · $0.014 · 23 s"],
+          ["", "Opus 5.5", "5/5 · $0.49 · 50 s", "5/5 · $0.47 · 47 s", "5/5 · $0.44 · 39 s"],
+          ["7-turn session (rules matter in turns 1, 6, 7)", "Haiku 5.5", "8/8 · $0.77 · 114 s", "8/8 · $0.58 · 81 s", "8/8 · $0.60 · 80 s"],
+          ["Simple task, rules present", "Haiku 5.5", "8/8 · $0.014 · 21 s", "8/8 · $0.012 · 16 s", ""],
+          ["", "Opus 5.5", "5/5 · $0.46 · 40 s", "5/5 · $0.41 · 34 s", ""],
+        ]}
+      />
+      <Table
+        head={["Teammate picks up a policy stated in chat", "Model", "lucid", "without lucid"]}
+        rows={[
+          ["A fresh session, with none of the first session’s memory", "Haiku 5.5", "8/8 · $0.022 (lucid learn unprompted in 6/8)", "8/8 · $0.024"],
+          ["", "Opus 5.5", "5/5 · $0.76 (lucid learn unprompted in 5/5)", "5/5 · $0.76"],
+        ]}
+      />
+      <p>Cells show runs passed, mean cost and mean time per run. The 115 runs cost $35.49.</p>
+      <ul>
+        <li>
+          <strong>No adherence gain on these tasks.</strong> Every arm passed every run, including a single 30-rule
+          CLAUDE.md, on both models and across a 7-turn session in which 80 KB of docs were read between the turns
+          where the rules mattered.
+        </li>
+        <li>
+          <strong>The cost is the review round:</strong> +$0.004 and +12 s per run on Haiku (+29%), +$0.025 and +3 s
+          on Opus (+5%), and +$0.19 and +33 s (+32%) over the 7-turn session. Keep <code>review: true</code> for the few
+          rules worth it.
+        </li>
+        <li>
+          <strong>The learning loop works unprompted.</strong> Nothing in the prompt mentioned lucid, yet Claude
+          proposed the policy as a team rule in 11 of 13 lucid runs. Without lucid, Claude wrote the policy into a new
+          CLAUDE.md itself in all 13 runs, so the teammate passed either way. The difference is the format: an unscoped
+          note, or a path-scoped rule proposal that waits for review.
+        </li>
+        <li>
+          <strong>Untested:</strong> hundreds of rules, sessions long enough to compact, large repos, and rules a model
+          is less inclined to follow. That’s where the research finds agents slip.
+        </li>
+      </ul>
+
       <H2 id="reproduce">Reproduce it</H2>
       <p>From a checkout of the repo, run the Haiku set (about $1.50):</p>
       <CodeBlock label="In your terminal" what="Haiku benchmark command" code={`python3 bench/run.py --runs 8 -j 4`} />
@@ -269,6 +332,12 @@ export default function Benchmark() {
         label="In your terminal"
         what="Opus benchmark command"
         code={`python3 bench/run.py --runs 8 -j 4 --model opus --budget 30`}
+      />
+      <p>The team-rules scenarios (Haiku, about $17, mostly the 7-turn session):</p>
+      <CodeBlock
+        label="In your terminal"
+        what="team rules benchmark command"
+        code={`python3 bench/run.py --scenarios rules,rules-long,teammate,rules-control --runs 8 -j 4`}
       />
       <p>Then render the charts:</p>
       <CodeBlock label="In your terminal" what="chart command" code={`python3 bench/chart.py`} />
