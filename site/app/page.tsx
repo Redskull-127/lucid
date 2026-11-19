@@ -89,6 +89,26 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ---------------------------------------------------------------- video */}
+      <section className="mx-auto w-full max-w-[64rem] px-4 pt-20 sm:px-6 lg:px-8 lg:pt-28" aria-labelledby="video-title">
+        <h2 id="video-title" className="section-title text-center">
+          lucid in under a minute
+        </h2>
+        <figure className="plate mt-8">
+          {/* Captions are burned in. preload="none": nothing downloads until play. */}
+          <video
+            className="block aspect-video h-auto w-full bg-[#0e0a28]"
+            controls
+            playsInline
+            preload="none"
+            poster="/video/lucid-poster.jpg"
+          >
+            <source src="/video/lucid.mp4" type="video/mp4" />
+          </video>
+          <figcaption>Voice, music and sound effects made with ElevenLabs.</figcaption>
+        </figure>
+      </section>
+
       {/* ---------------------------------------------------------------- problem */}
       <section className="mx-auto w-full max-w-[84rem] px-4 py-20 sm:px-6 lg:px-8 lg:py-28" aria-labelledby="problem-title">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:gap-16">
