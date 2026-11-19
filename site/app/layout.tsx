@@ -11,26 +11,39 @@ const code = JetBrains_Mono({ variable: "--font-code", subsets: ["latin"], displ
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
+  // The default title carries what people search for ("Claude Code plugin"); the social cards keep the tagline.
   title: {
-    default: "lucid: one shared dream for every Claude",
+    default: "lucid – Claude Code plugin for shared plans, memory and team rules",
     template: "%s – lucid",
   },
-  description: SITE.description,
+  description: SITE.summary,
   applicationName: "lucid",
   authors: [{ name: SITE.author, url: SITE.authorUrl }],
-  keywords: ["Claude Code", "plugin", "multi-agent", "subagents", "Agent Teams", "shared memory", "hooks"],
+  creator: SITE.author,
+  category: "technology",
+  keywords: [
+    "Claude Code plugin",
+    "Claude Code subagents",
+    "Agent Teams",
+    "multi-agent coding",
+    "shared memory for AI agents",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "team rules",
+    "Claude Code hooks",
+  ],
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     siteName: "lucid",
     url: "/",
     title: "lucid: one shared dream for every Claude",
-    description: SITE.description,
+    description: SITE.summary,
   },
   twitter: {
     card: "summary_large_image",
     title: "lucid: one shared dream for every Claude",
-    description: SITE.description,
+    description: SITE.summary,
   },
 };
 

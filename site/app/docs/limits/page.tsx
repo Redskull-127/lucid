@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DocHeader, H2, H3, docMetadata } from "@/components/doc";
+import { JsonLd, textOf } from "@/components/json-ld";
 
 export const metadata = docMetadata("/docs/limits");
 
@@ -143,6 +144,17 @@ const FAQ = [
 export default function Limits() {
   return (
     <>
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: FAQ.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: textOf(f.a).replace(/\s+/g, " ").trim() },
+          })),
+        }}
+      />
       <DocHeader title="Limits & FAQ">What lucid doesn’t do, measured where possible.</DocHeader>
 
       <H2 id="limits">Honest limits</H2>

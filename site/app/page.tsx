@@ -3,7 +3,57 @@ import { CopyButton } from "@/components/copy-button";
 import { HeroEye } from "@/components/hero-eye";
 import { GitHubMark } from "@/components/site-header";
 import { ThemedFigure } from "@/components/themed-image";
-import { INSTALL, SITE } from "@/lib/site";
+import { JsonLd } from "@/components/json-ld";
+import { INSTALL, SITE, VIDEO } from "@/lib/site";
+
+// What lucid is, who made it and the promo, for search and answer engines.
+const STRUCTURED = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": `${SITE.url}/#website`,
+      url: SITE.url,
+      name: SITE.name,
+      description: SITE.summary,
+      inLanguage: "en",
+      publisher: { "@id": `${SITE.url}/#author` },
+    },
+    { "@type": "Person", "@id": `${SITE.url}/#author`, name: SITE.author, url: SITE.authorUrl },
+    {
+      "@type": "SoftwareApplication",
+      "@id": `${SITE.url}/#software`,
+      name: SITE.name,
+      alternateName: "lucid for Claude Code",
+      description: SITE.description,
+      url: SITE.url,
+      image: `${SITE.url}/icon.png`,
+      applicationCategory: "DeveloperApplication",
+      applicationSubCategory: "Claude Code plugin",
+      operatingSystem: "macOS, Linux",
+      softwareRequirements: "Claude Code; Python 3.9+ (standard library only)",
+      downloadUrl: SITE.github,
+      installUrl: `${SITE.url}/docs/installation`,
+      license: "https://opensource.org/licenses/MIT",
+      isAccessibleForFree: true,
+      offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+      author: { "@id": `${SITE.url}/#author` },
+      sameAs: [SITE.github],
+    },
+    {
+      "@type": "VideoObject",
+      name: VIDEO.title,
+      description: "A one-minute tour of lucid: a plan change mid-build, team rules checked on every edit, and the cost per working result.",
+      thumbnailUrl: `${SITE.url}${VIDEO.poster}`,
+      contentUrl: `${SITE.url}${VIDEO.src}`,
+      uploadDate: VIDEO.uploadDate,
+      duration: VIDEO.duration,
+      inLanguage: "en",
+      transcript: VIDEO.transcript,
+      author: { "@id": `${SITE.url}/#author` },
+    },
+  ],
+};
 
 const PROBLEMS = [
   { term: "Plan drift", why: "Running workers keep following the plan they started with." },
@@ -58,6 +108,7 @@ function InstallBlock() {
 export default function Home() {
   return (
     <>
+      <JsonLd data={STRUCTURED} />
       {/* ---------------------------------------------------------------- hero */}
       <section className="sky border-b border-line" aria-labelledby="hero-title">
         <div className="mx-auto grid w-full max-w-[84rem] items-center gap-12 px-4 pb-16 pt-10 sm:px-6 sm:pt-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)] lg:gap-10 lg:px-8 lg:pb-20 lg:pt-14">
@@ -66,8 +117,9 @@ export default function Home() {
               One shared dream for every Claude
             </h1>
             <p className="lede mt-5 max-w-[30rem]">
-              A live plan and shared memory for Claude Code agents. Change it mid-build, and every running worker sees
-              it before its next step. Plus team rules every agent is checked against, learned from your reviews.
+              lucid is a free, open-source Claude Code plugin that gives your agents one live plan and shared memory.
+              Change it mid-build, and every running worker sees it before its next step. Plus team rules every agent
+              is checked against, learned from your reviews.
             </p>
             <div className="mt-8 max-w-[30rem]">
               <InstallBlock />
@@ -92,21 +144,30 @@ export default function Home() {
       {/* ---------------------------------------------------------------- video */}
       <section className="mx-auto w-full max-w-[64rem] px-4 pt-20 sm:px-6 lg:px-8 lg:pt-28" aria-labelledby="video-title">
         <h2 id="video-title" className="section-title text-center">
-          lucid in under a minute
+          {VIDEO.title}
         </h2>
-        <figure className="plate mt-8">
-          {/* Captions are burned in. preload="none": nothing downloads until play. */}
-          <video
-            className="block aspect-video h-auto w-full bg-[#0e0a28]"
-            controls
-            playsInline
-            preload="none"
-            poster="/video/lucid-poster.jpg"
-          >
-            <source src="/video/lucid.mp4" type="video/mp4" />
-          </video>
-          <figcaption>Voice, music and sound effects made with ElevenLabs.</figcaption>
-        </figure>
+        {/* The gap lives on a wrapper: .plate's unlayered `margin: 0` beats Tailwind's layered mt-* utilities. */}
+        <div className="mt-8 sm:mt-10">
+          <figure className="plate">
+            {/* Captions are burned in. preload="none": nothing downloads until play. */}
+            <video
+              className="block aspect-video h-auto w-full bg-[#0e0a28]"
+              controls
+              playsInline
+              preload="none"
+              poster={VIDEO.poster}
+            >
+              <source src={VIDEO.src} type="video/mp4" />
+            </video>
+            <figcaption>
+              <details>
+                <summary className="cursor-pointer">Transcript</summary>
+                <p className="mt-2">{VIDEO.transcript}</p>
+              </details>
+              <p className="mt-2">Voice, music and sound effects made with ElevenLabs.</p>
+            </figcaption>
+          </figure>
+        </div>
       </section>
 
       {/* ---------------------------------------------------------------- problem */}
