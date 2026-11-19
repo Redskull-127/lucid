@@ -28,8 +28,11 @@ export function DocJsonLd() {
             url,
             mainEntityOfPage: url,
             inLanguage: "en",
+            image: `${SITE.url}/opengraph-image`,
             author: { "@type": "Person", name: SITE.author, url: SITE.authorUrl },
-            about: { "@type": "SoftwareApplication", name: SITE.name, url: SITE.url },
+            // A reference to the full entity on the home page. An inline SoftwareApplication stub here is
+            // validated by Google as an app listing on its own, and fails for lacking offers/OS/category.
+            about: { "@id": `${SITE.url}/#software` },
             isPartOf: { "@type": "WebSite", name: SITE.name, url: SITE.url },
           },
           {
