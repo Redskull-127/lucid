@@ -1,0 +1,612 @@
+[
+{
+"text": "Three",
+"start": 0.48,
+"end": 0.72
+},
+{
+"text": "Claude",
+"start": 0.8,
+"end": 1.12
+},
+{
+"text": "agents.",
+"start": 1.4,
+"end": 1.84
+},
+{
+"text": "One",
+"start": 2.0,
+"end": 2.16
+},
+{
+"text": "feature.",
+"start": 2.24,
+"end": 2.88
+},
+{
+"text": "Big",
+"start": 3.12,
+"end": 3.36
+},
+{
+"text": "brain.",
+"start": 3.44,
+"end": 4.2
+},
+{
+"text": "Then",
+"start": 4.48,
+"end": 4.56
+},
+{
+"text": "you",
+"start": 4.64,
+"end": 4.72
+},
+{
+"text": "change",
+"start": 4.8,
+"end": 5.04
+},
+{
+"text": "the",
+"start": 5.12,
+"end": 5.2
+},
+{
+"text": "plan\u2026",
+"start": 5.56,
+"end": 5.96
+},
+{
+"text": "and",
+"start": 6.0,
+"end": 6.08
+},
+{
+"text": "your",
+"start": 6.16,
+"end": 6.24
+},
+{
+"text": "workers?",
+"start": 6.52,
+"end": 6.96
+},
+{
+"text": "Did",
+"start": 7.32,
+"end": 7.36
+},
+{
+"text": "NOT",
+"start": 7.52,
+"end": 7.84
+},
+{
+"text": "get",
+"start": 8.0,
+"end": 8.08
+},
+{
+"text": "the",
+"start": 8.16,
+"end": 8.2
+},
+{
+"text": "memo.",
+"start": 8.24,
+"end": 8.84
+},
+{
+"text": "Plan",
+"start": 9.12,
+"end": 9.44
+},
+{
+"text": "drift.",
+"start": 9.52,
+"end": 10.0
+},
+{
+"text": "Clobbered",
+"start": 10.16,
+"end": 10.64
+},
+{
+"text": "files.",
+"start": 10.72,
+"end": 11.32
+},
+{
+"text": "Amnesia",
+"start": 11.44,
+"end": 12.08
+},
+{
+"text": "after",
+"start": 12.16,
+"end": 12.4
+},
+{
+"text": "compact.",
+"start": 12.56,
+"end": 13.32
+},
+{
+"text": "Meet",
+"start": 13.6,
+"end": 13.84
+},
+{
+"text": "lucid.",
+"start": 14.0,
+"end": 14.68
+},
+{
+"text": "One",
+"start": 14.88,
+"end": 15.04
+},
+{
+"text": "shared",
+"start": 15.12,
+"end": 15.36
+},
+{
+"text": "dream",
+"start": 15.44,
+"end": 15.76
+},
+{
+"text": "for",
+"start": 15.84,
+"end": 15.92
+},
+{
+"text": "every",
+"start": 16.08,
+"end": 16.32
+},
+{
+"text": "Claude.",
+"start": 16.4,
+"end": 16.88
+},
+{
+"text": "Edit",
+"start": 17.2,
+"end": 17.44
+},
+{
+"text": "the",
+"start": 17.48,
+"end": 17.52
+},
+{
+"text": "plan,",
+"start": 17.6,
+"end": 18.0
+},
+{
+"text": "and",
+"start": 18.12,
+"end": 18.24
+},
+{
+"text": "every",
+"start": 18.32,
+"end": 18.56
+},
+{
+"text": "running",
+"start": 18.64,
+"end": 18.88
+},
+{
+"text": "agent",
+"start": 18.96,
+"end": 19.2
+},
+{
+"text": "gets",
+"start": 19.28,
+"end": 19.44
+},
+{
+"text": "the",
+"start": 19.48,
+"end": 19.52
+},
+{
+"text": "diff",
+"start": 19.6,
+"end": 19.84
+},
+{
+"text": "before",
+"start": 19.96,
+"end": 20.08
+},
+{
+"text": "its",
+"start": 20.16,
+"end": 20.4
+},
+{
+"text": "very",
+"start": 20.52,
+"end": 20.64
+},
+{
+"text": "next",
+"start": 20.72,
+"end": 20.96
+},
+{
+"text": "tool",
+"start": 21.04,
+"end": 21.12
+},
+{
+"text": "call.",
+"start": 21.2,
+"end": 21.84
+},
+{
+"text": "Plus",
+"start": 21.96,
+"end": 22.2
+},
+{
+"text": "file",
+"start": 22.28,
+"end": 22.6
+},
+{
+"text": "locks,",
+"start": 22.68,
+"end": 23.24
+},
+{
+"text": "and",
+"start": 23.36,
+"end": 23.48
+},
+{
+"text": "memory",
+"start": 23.64,
+"end": 23.96
+},
+{
+"text": "that",
+"start": 24.04,
+"end": 24.12
+},
+{
+"text": "survives",
+"start": 24.2,
+"end": 24.52
+},
+{
+"text": "compact.",
+"start": 24.8,
+"end": 25.28
+},
+{
+"text": "Your",
+"start": 25.56,
+"end": 25.8
+},
+{
+"text": "AGENTS.md?",
+"start": 25.96,
+"end": 27.08
+},
+{
+"text": "Just",
+"start": 27.48,
+"end": 27.64
+},
+{
+"text": "a",
+"start": 27.72,
+"end": 27.76
+},
+{
+"text": "suggestion.",
+"start": 27.8,
+"end": 28.64
+},
+{
+"text": "Forty",
+"start": 28.84,
+"end": 29.08
+},
+{
+"text": "turns",
+"start": 29.16,
+"end": 29.48
+},
+{
+"text": "in\u2026",
+"start": 29.56,
+"end": 30.2
+},
+{
+"text": "who's",
+"start": 30.28,
+"end": 30.52
+},
+{
+"text": "checking?",
+"start": 30.76,
+"end": 31.08
+},
+{
+"text": "lucid",
+"start": 31.48,
+"end": 31.8
+},
+{
+"text": "is.",
+"start": 31.88,
+"end": 32.4
+},
+{
+"text": "Every",
+"start": 32.6,
+"end": 32.84
+},
+{
+"text": "edit,",
+"start": 32.92,
+"end": 33.32
+},
+{
+"text": "from",
+"start": 33.44,
+"end": 33.56
+},
+{
+"text": "every",
+"start": 33.64,
+"end": 33.88
+},
+{
+"text": "agent,",
+"start": 33.96,
+"end": 34.52
+},
+{
+"text": "checked",
+"start": 34.68,
+"end": 34.84
+},
+{
+"text": "against",
+"start": 34.92,
+"end": 35.24
+},
+{
+"text": "your",
+"start": 35.32,
+"end": 35.48
+},
+{
+"text": "rules.",
+"start": 35.56,
+"end": 36.16
+},
+{
+"text": "And",
+"start": 36.36,
+"end": 36.44
+},
+{
+"text": "it",
+"start": 36.52,
+"end": 36.6
+},
+{
+"text": "learns.",
+"start": 36.76,
+"end": 37.48
+},
+{
+"text": "Correct",
+"start": 37.64,
+"end": 37.96
+},
+{
+"text": "an",
+"start": 38.0,
+"end": 38.04
+},
+{
+"text": "agent",
+"start": 38.2,
+"end": 38.36
+},
+{
+"text": "once,",
+"start": 38.44,
+"end": 38.84
+},
+{
+"text": "and",
+"start": 38.92,
+"end": 39.0
+},
+{
+"text": "lucid",
+"start": 39.08,
+"end": 39.4
+},
+{
+"text": "turns",
+"start": 39.52,
+"end": 39.68
+},
+{
+"text": "it",
+"start": 39.72,
+"end": 39.76
+},
+{
+"text": "into",
+"start": 39.8,
+"end": 40.04
+},
+{
+"text": "a",
+"start": 40.08,
+"end": 40.12
+},
+{
+"text": "repo",
+"start": 40.2,
+"end": 40.52
+},
+{
+"text": "rule.",
+"start": 40.6,
+"end": 41.24
+},
+{
+"text": "Architecture.",
+"start": 41.6,
+"end": 42.08
+},
+{
+"text": "Security.",
+"start": 42.2,
+"end": 43.0
+},
+{
+"text": "Conventions.",
+"start": 43.12,
+"end": 44.12
+},
+{
+"text": "Approved",
+"start": 44.36,
+"end": 44.6
+},
+{
+"text": "in",
+"start": 44.64,
+"end": 44.68
+},
+{
+"text": "a",
+"start": 44.72,
+"end": 44.76
+},
+{
+"text": "PR,",
+"start": 44.84,
+"end": 45.4
+},
+{
+"text": "followed",
+"start": 45.52,
+"end": 45.72
+},
+{
+"text": "by",
+"start": 45.88,
+"end": 46.04
+},
+{
+"text": "every",
+"start": 46.12,
+"end": 46.36
+},
+{
+"text": "agent.",
+"start": 46.44,
+"end": 47.16
+},
+{
+"text": "The",
+"start": 47.229,
+"end": 47.24
+},
+{
+"text": "receipts?",
+"start": 47.32,
+"end": 48.12
+},
+{
+"text": "Up",
+"start": 48.2,
+"end": 48.28
+},
+{
+"text": "to",
+"start": 48.4,
+"end": 48.52
+},
+{
+"text": "4.5",
+"start": 48.6,
+"end": 49.16
+},
+{
+"text": "times",
+"start": 49.32,
+"end": 49.56
+},
+{
+"text": "cheaper",
+"start": 49.72,
+"end": 50.04
+},
+{
+"text": "per",
+"start": 50.12,
+"end": 50.28
+},
+{
+"text": "working",
+"start": 50.36,
+"end": 50.6
+},
+{
+"text": "result.",
+"start": 50.68,
+"end": 51.32
+},
+{
+"text": "Two",
+"start": 51.7,
+"end": 51.78
+},
+{
+"text": "commands.",
+"start": 51.86,
+"end": 52.66
+},
+{
+"text": "Zero",
+"start": 52.74,
+"end": 53.06
+},
+{
+"text": "dependencies.",
+"start": 53.14,
+"end": 54.26
+},
+{
+"text": "Go",
+"start": 54.34,
+"end": 54.5
+},
+{
+"text": "lucid.",
+"start": 54.58,
+"end": 55.46
+}
+]
